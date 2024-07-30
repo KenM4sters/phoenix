@@ -1,7 +1,6 @@
 
-pub mod window;
-pub mod state;
+pub mod graphics;
 
 fn main() {
-    window::run();
+    
 }
