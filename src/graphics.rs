@@ -9,12 +9,32 @@ struct Surface<'a> {
     config: Option<wgpu::SurfaceConfiguration>
 }
 
-impl<'a> Surface<'a> {
+impl<'a, 'b> Surface<'a> {
     async fn new(instance: &'a wgpu::Instance, window: &'a Window) -> Surface<'a> {
         Self {
             surface: instance.create_surface(window).unwrap(),
             config: None
         }
+    }
+
+    fn configure(&mut self, physical_device: &'b PhysicalDevice, size : winit::dpi::PhysicalSize<u32>) {
+        let surface_caps = self.surface.get_capabilities(&physical_device.physical_device);
+
+        let surface_format = surface_caps.formats.iter()
+            .find(|f| f.is_srgb())
+            .copied()
+            .unwrap_or(surface_caps.formats[0]);
+
+        self.config = Some(wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
+            width: size.width,
+            height: size.height,
+            present_mode: surface_caps.present_modes[0],
+            alpha_mode: surface_caps.alpha_modes[0],
+            view_formats: vec![],
+            desired_maximum_frame_latency: 2,
+        });
     }
 }
 
@@ -79,11 +99,13 @@ impl<'a> Graphics<'a> {
             ..Default::default()
         });
 
-        let surface = Surface::new(&instance, window).await;
+        let mut surface = Surface::new(&instance, window).await;
 
         let physical_device = PhysicalDevice::new(&instance, &surface).await;
 
         let logical_device = LogicalDevice::new(&physical_device).await;
+        
+        surface.configure(&physical_device, size);
 
         Self {
             physical_device,
@@ -92,6 +114,19 @@ impl<'a> Graphics<'a> {
             size
         }
     }
+
+    pub fn resize() {
+
+    }
+
+    pub fn update() {
+
+    }
+
+    pub fn render() -> Result<(), ()> {
+        Ok(())
+    }
+
 }
 
 

@@ -34,11 +34,11 @@ pub async fn run() {
             _ => {}
         },
         _ => {}
-    });
+    }).expect("Failed to run event loop!");
 }
 
 
 
 fn main() {
-    run();
+    pollster::block_on(run());
 }
