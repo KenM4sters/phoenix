@@ -4,126 +4,94 @@ use winit::{
 };
 
 
-struct Surface {
-    surface: wgpu::Surface,
-    config: Option<wgpu::SurfaceConfiguration>,
+struct Surface<'a> {
+    surface: wgpu::Surface<'a>,
+    config: Option<wgpu::SurfaceConfiguration>
 }
 
-impl<'a> Surface {
-    fn new(instance: &wgpu::Instance, window: &Window) -> Surface {
-        let surface = unsafe { instance.create_surface(window) }.unwrap();
-
+impl<'a> Surface<'a> {
+    async fn new(instance: &'a wgpu::Instance, window: &'a Window) -> Surface<'a> {
         Self {
-            surface,
-            config: None,
+            surface: instance.create_surface(window).unwrap(),
+            config: None
         }
-    }
-
-    fn configure(&mut self, physical_device: &PhysicalDevice, size: winit::dpi::PhysicalSize<u32>) {
-        let surface_caps = self.surface.get_capabilities(&physical_device.adapter);
-
-        let surface_format = surface_caps.formats.iter()
-            .find(|f| f.is_srgb())
-            .copied()
-            .unwrap_or(surface_caps.formats[0]);
-
-        self.config = Some(wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-            desired_maximum_frame_latency: 2,
-        });
-
-        self.surface.configure(&physical_device.device, self.config.as_ref().unwrap());
     }
 }
 
 struct PhysicalDevice {
-    adapter: wgpu::Adapter,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    physical_device: wgpu::Adapter
 }
 
-impl PhysicalDevice {
-    async fn new(instance: &wgpu::Instance, surface: &wgpu::Surface) -> PhysicalDevice {
-        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::LowPower,
-            compatible_surface: Some(surface),
-            force_fallback_adapter: false,
-        }).await.unwrap();
-
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            required_features: wgpu::Features::empty(),
-            #[cfg(not(target_arch = "wasm32"))]
-            required_limits: wgpu::Limits::default(),
-            #[cfg(target_arch = "wasm32")]
-            required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-            label: None,
-        }, None).await.unwrap();
-
+impl<'a> PhysicalDevice {
+    async fn new(instance: &'a wgpu::Instance, surface: &'a Surface<'a>) -> PhysicalDevice {
         Self {
-            adapter,
-            device,
-            queue,
+            physical_device: instance.request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface.surface),
+                force_fallback_adapter: false
+            }).await.unwrap()
         }
     }
 }
 
-struct Graphics {
-    surface: Surface,
-    physical_device: PhysicalDevice,
-    size: winit::dpi::PhysicalSize<u32>,
-    window: Window,
+
+struct LogicalDevice {
+    logical_device: wgpu::Device,
+    queue: wgpu::Queue
 }
 
-impl<'a> Graphics {
-    async fn new(window: Window) -> Graphics<'a> {
+impl<'a> LogicalDevice {
+    async fn new(physical_device: &'a PhysicalDevice) -> LogicalDevice {
+        let (logical_device, queue) = physical_device.physical_device.request_device(&wgpu::DeviceDescriptor {
+            required_features: wgpu::Features::empty(),
+            #[cfg(not(target_arch="wasm32"))]
+            required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
+            #[cfg(target_arch="wasm32")]
+            requred_limits: wgpu::Limits::default(),
+            memory_hints: wgpu::MemoryHints::Performance,
+            label: None
+        }, 
+        None).await.unwrap();
+
+        Self {
+            logical_device,
+            queue
+        }
+    }
+}
+
+pub struct Graphics<'a> {
+    physical_device: PhysicalDevice,
+    logical_device: LogicalDevice,
+    window: &'a Window,
+    size: winit::dpi::PhysicalSize<u32>
+}
+
+impl<'a> Graphics<'a> {
+    pub async fn new(window: &'a Window) -> Graphics<'a> {
         let size = window.inner_size();
 
-        let instance = wgpu::Instance::new(InstanceDescriptor {
-            #[cfg(not(target_arch = "wasm32"))]
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            #[cfg(not(target_arch="wasm32"))]
             backends: wgpu::Backends::PRIMARY,
-            #[cfg(target_arch = "wasm32")]
+            #[cfg(target_arch="wasm32")]
             backends: wgpu::Backends::GL,
-            flags: wgpu::InstanceFlags::VALIDATION | wgpu::InstanceFlags::DEBUG,
-            dx12_shader_compiler: wgpu::Dx12Compiler::default(),
-            gles_minor_version: wgpu::Gles3MinorVersion::default(),
+            ..Default::default()
         });
 
-        let surface = Surface::new(&instance, &window);
+        let surface = Surface::new(&instance, window).await;
 
-        let physical_device = PhysicalDevice::new(&instance, &surface.surface).await;
+        let physical_device = PhysicalDevice::new(&instance, &surface).await;
 
-        let mut surface = surface;
-        surface.configure(&physical_device, size);
+        let logical_device = LogicalDevice::new(&physical_device).await;
 
         Self {
-            surface,
             physical_device,
-            size,
+            logical_device,
             window,
+            size
         }
     }
-
-    fn window(&self) -> &Window {
-        &self.window
-    }
-
-    fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.size = new_size;
-        self.surface.configure(&self.physical_device, new_size);
-    }
-
-    fn input(&mut self, _event: &WindowEvent) -> bool {
-        false
-    }
-
-    fn update(&mut self) {}
-
-    fn render(&mut self) {}
 }
+
 
