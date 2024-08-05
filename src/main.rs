@@ -1,12 +1,9 @@
 
 pub mod graphics;
-
+pub mod engine;
 
 use winit::{
-    event::*,
-    event_loop::EventLoop,
-    keyboard::{KeyCode, PhysicalKey},
-    window::WindowBuilder,
+    dpi::{PhysicalSize, Pixel}, event::*, event_loop::EventLoop, keyboard::{KeyCode, PhysicalKey}, window::WindowBuilder
 };
 
 pub async fn run() {
@@ -16,7 +13,7 @@ pub async fn run() {
 
     let mut graphics = graphics::Graphics::new(&window).await;
 
-    event_loop.run(move |event, control_flow| match event {
+    let _ = event_loop.run(|event, control_flow| match event {
         Event::WindowEvent {
             ref event,
             window_id,
@@ -31,9 +28,17 @@ pub async fn run() {
                     },
                 ..
             } => control_flow.exit(),
+            WindowEvent::Resized(mut physical_size) => {
+                physical_size.width /= window.scale_factor() as u32;
+                physical_size.height /= window.scale_factor() as u32;
+
+                graphics.resize(&physical_size);
+            }
             _ => {}
         },
-        _ => {}
+        _ => {
+            let _ = graphics.render();
+        }
     }).expect("Failed to run event loop!");
 }
 
