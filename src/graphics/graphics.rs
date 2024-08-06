@@ -1,7 +1,5 @@
-use wgpu::InstanceDescriptor;
-use winit::{
-    dpi::{self, PhysicalSize}, event::*, event_loop::EventLoop, keyboard::{KeyCode, PhysicalKey}, window::{Window, WindowBuilder}
-};
+use winit::{dpi::PhysicalSize, window::Window};
+
 
 
 struct Surface<'a> {
@@ -84,17 +82,20 @@ impl LogicalDevice {
     }
 }
 
-pub struct Graphics<'a> {
+pub struct Graphics<'a, 'b> 
+where 'b:'a
+{
     instance: wgpu::Instance,
     surface: Surface<'a>,
     physical_device: PhysicalDevice,
     logical_device: LogicalDevice,
-    window: &'a Window,
+    window: &'b Window,
     size: winit::dpi::PhysicalSize<u32>,
 }
 
-impl<'a> Graphics<'a> {
-    pub async fn new(window: &'a Window) -> Self 
+impl<'a, 'b> Graphics<'a, 'b> {
+    pub async fn new(window: &'b Window) -> Self 
+    where 'b:'a
     {
         let size = window.inner_size();
 
