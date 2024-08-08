@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use winit::{
     event::WindowEvent, window::Window
 };
@@ -10,28 +12,26 @@ use crate::graphics::graphics::Graphics;
 use crate::scene::scene::Scene;
 
 
-pub struct Engine<'a, 'b> 
-where 'b:'a
+pub struct Engine<'a> 
 {
     game_loop: winit::event_loop::EventLoop<()>,
-    window: Window,
+    window: Rc<Window>,
     input: Input<'a>,
-    graphics: Graphics<'a, 'b>,
+    graphics: Graphics<'a>,
 }
 
-impl<'a, 'b> Engine<'a, 'b> {
+impl<'a> Engine<'a> {
     pub async fn new() -> Self 
-    where 'b:'a
     {
         let input = Input::new();
 
         let game_loop = EventLoop::new().expect("Failed to start event loop");
 
-        let window = WindowBuilder::new()
+        let window = Rc::new(WindowBuilder::new()
             .build(&game_loop)
-            .expect("Failed to start window");
+            .expect("Failed to start window"));
 
-        let graphics = Graphics::new(&window).await;
+        let graphics = Graphics::new(Rc::clone(&window)).await;
 
         env_logger::init();
 

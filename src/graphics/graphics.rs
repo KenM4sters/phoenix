@@ -1,17 +1,25 @@
+use std::{ops::Deref, rc::Rc};
+
 use winit::{dpi::PhysicalSize, window::Window};
 
 
 
 struct Surface<'a> {
+    window: Rc<Window>,
     surface: wgpu::Surface<'a>,
     config: Option<wgpu::SurfaceConfiguration>
 }
 
 impl<'a> Surface<'a> {
-    async fn new(instance: &wgpu::Instance, window: &'a Window) -> Self
+    async fn new(instance: &wgpu::Instance, window: Rc<Window>) -> Self
     {
+        let surface = unsafe {
+            instance.create_surface(window.as_ref()).unwrap()
+        };
+
         Self {
-            surface: instance.create_surface(window).unwrap(),
+            window,
+            surface: surface,
             config: None
         }
     }
@@ -82,20 +90,17 @@ impl LogicalDevice {
     }
 }
 
-pub struct Graphics<'a, 'b> 
-where 'b:'a
+pub struct Graphics<'a> 
 {
     instance: wgpu::Instance,
     surface: Surface<'a>,
     physical_device: PhysicalDevice,
     logical_device: LogicalDevice,
-    window: &'b Window,
     size: winit::dpi::PhysicalSize<u32>,
 }
 
-impl<'a, 'b> Graphics<'a, 'b> {
-    pub async fn new(window: &'b Window) -> Self 
-    where 'b:'a
+impl<'a> Graphics<'a> {
+    pub async fn new(window: Rc<Window>) -> Self 
     {
         let size = window.inner_size();
 
@@ -107,7 +112,7 @@ impl<'a, 'b> Graphics<'a, 'b> {
             ..Default::default()
         });
 
-        let mut surface = Surface::new(&instance, window).await;
+        let mut surface = Surface::new(&instance, Rc::clone(&window)).await;
 
         let physical_device = PhysicalDevice::new(&instance, &surface).await;
 
@@ -120,7 +125,6 @@ impl<'a, 'b> Graphics<'a, 'b> {
             surface,
             physical_device,
             logical_device,
-            window,
             size,
         }
     }
