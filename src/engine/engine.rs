@@ -1,11 +1,8 @@
-use std::rc::Rc;
+
 
 use winit::{
-    event::WindowEvent, window::Window
-};
-
-use winit::{
-    dpi::{PhysicalSize, Pixel}, event::*, event_loop::EventLoop, keyboard::{KeyCode, PhysicalKey}, window::WindowBuilder
+    event::WindowEvent, window::Window,
+    dpi::{PhysicalSize, Pixel}, event::*, event_loop::EventLoop, keyboard::{KeyCode, PhysicalKey}, window::WindowBuilder, 
 };
 
 use crate::graphics::graphics::Graphics;
@@ -15,7 +12,7 @@ use crate::scene::scene::Scene;
 pub struct Engine<'a> 
 {
     game_loop: winit::event_loop::EventLoop<()>,
-    window: Rc<Window>,
+    window: Window,
     input: Input<'a>,
     graphics: Graphics<'a>,
 }
@@ -27,11 +24,11 @@ impl<'a> Engine<'a> {
 
         let game_loop = EventLoop::new().expect("Failed to start event loop");
 
-        let window = Rc::new(WindowBuilder::new()
+        let window = WindowBuilder::new()
             .build(&game_loop)
-            .expect("Failed to start window"));
+            .expect("Failed to start window");
 
-        let graphics = Graphics::new(Rc::clone(&window)).await;
+        let graphics = Graphics::new(&window).await;
 
         env_logger::init();
 
