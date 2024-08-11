@@ -1,11 +1,14 @@
-use engine::engine::Engine;
-use graphics::graphics::Graphics;
-use scene::scene::Scene;
 
-mod engine;
+use pollster::block_on;
+use program::program::Program;
+
+
+mod program;
 mod graphics;
+mod game;
 mod scene;
 
+
 fn main() {
-    pollster::block_on(Engine::new());
+   block_on(Program::new());
 }

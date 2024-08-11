@@ -10,7 +10,6 @@ pub struct Graphics<'a>
     logical_device: wgpu::Device,
     queue: wgpu::Queue,
     size: winit::dpi::PhysicalSize<u32>,
-    window: &'a Window
 }
 
 impl<'a> Graphics<'a> {
@@ -26,9 +25,7 @@ impl<'a> Graphics<'a> {
             ..Default::default()
         });
         
-        let surface = unsafe {
-            instance.create_surface(window).unwrap()
-        };
+        let surface = instance.create_surface(window).unwrap();
         
 
         let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -75,8 +72,7 @@ impl<'a> Graphics<'a> {
             adapter,
             logical_device,
             queue,
-            size,
-            window
+            size
         }
     }
 
