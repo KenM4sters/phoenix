@@ -9,19 +9,12 @@ use crate::{game::game::Input, graphics::graphics::Graphics};
 pub struct Program<'a> {
     input: Input<'a>,
     graphics: Graphics<'a>,
-    window: Window,   
-    game_loop: EventLoop<()>
+    window: &'a Window,   
 }
 
 impl<'a> Program<'a> {
-    pub async fn new() -> Self {
+    pub async fn new(window: &'a Window) -> Self {
         let input = Input::new();
-
-        let game_loop = EventLoop::new().expect("Failed to start event loop");
-    
-        let window = WindowBuilder::new()
-            .build(&game_loop)
-            .expect("Failed to start window");
     
         let graphics = Graphics::new(&window).await;
     
@@ -30,13 +23,12 @@ impl<'a> Program<'a> {
         Self {
             input, 
             graphics,
-            window,
-            game_loop
+            window
         }
     }
 
-    pub async fn run(mut self) {
-        let _ = self.game_loop.run(move |event, control_flow| match event {
+    pub async fn run(&mut self, game_loop: EventLoop<()>) {
+        let _ = game_loop.run(move |event, control_flow| match event {
             Event::WindowEvent {
                 ref event,
                 window_id,
@@ -54,7 +46,7 @@ impl<'a> Program<'a> {
                 WindowEvent::Resized(mut physical_size) => {
                     physical_size.width /= self.window.scale_factor() as u32;
                     physical_size.height /= self.window.scale_factor() as u32;
-    
+      
                     self.graphics.resize(&physical_size);
                 }
                 _ => {}
