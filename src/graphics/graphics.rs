@@ -79,6 +79,9 @@ impl<'a> Graphics<'a> {
 
 
     pub fn resize(&mut self, new_size: &PhysicalSize<u32>) {
+        self.surface_config.width = new_size.width;
+        self.surface_config.height = new_size.height;
+        
         self.surface.configure(&self.logical_device, &self.surface_config);
     }
 
