@@ -8,11 +8,10 @@ use winit::{
 mod program;
 mod graphics;
 mod game;
-mod scene;
+mod sprite;
 
 
 fn main() {
-
    let game_loop = EventLoop::new().expect("Failed to start event loop");
     
    let window = WindowBuilder::new()
