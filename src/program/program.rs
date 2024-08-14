@@ -3,21 +3,25 @@ use winit::{
     event::{WindowEvent, *}, event_loop::{EventLoop, EventLoopWindowTarget}, keyboard::{KeyCode, PhysicalKey}, window::Window 
 };
 
-use crate::graphics::graphics::Graphics;
+use crate::{game::game::Game, graphics::graphics::Graphics};
 
 pub struct Program<'a> {
+    game: Game<'a>,
     graphics: Graphics<'a>,
     window: &'a Window,   
 }
 
 impl<'a> Program<'a> {
     pub async fn new(window: &'a Window) -> Self {
+        
+        let game = Game::new();
     
         let graphics = Graphics::new(&window).await;
     
         env_logger::init();
 
         Self {
+            game,
             graphics,
             window
         }
@@ -29,11 +33,15 @@ impl<'a> Program<'a> {
                 Event::WindowEvent { 
                     window_id, event 
                 } if window_id == self.window.id() => {
-                    self.handle_window_input(&event, &control_flow)
+                    self.handle_window_input(&event, &control_flow);
+                    self.game.handle_window_input(&event, &control_flow);
                 }
                 _ => {}
             }
-            let _ = self.graphics.render();
+
+            self.game.update();
+
+            let _ = self.graphics.render(&self.game);
         });
     }
 

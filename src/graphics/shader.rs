@@ -8,7 +8,8 @@ pub struct ShaderModule {
 impl ShaderModule {
     pub fn new(logical_device: &wgpu::Device, code_path: &str) -> Self {
 
-        let code = fs::read_to_string(code_path).expect("Failed to read shader file!");
+        let code = fs::read_to_string(code_path)
+            .expect("Failed to read shader file!");
         
         let shader_module = logical_device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -19,4 +20,9 @@ impl ShaderModule {
             context_handle: shader_module
         }
     }
+}
+
+pub struct ShaderProgram {
+    vertex_module: ShaderModule,
+    fragment_module: ShaderModule
 }
