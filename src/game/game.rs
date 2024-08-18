@@ -14,7 +14,6 @@ pub struct Game<'a> {
 
 impl<'a> Game<'a> {
     pub fn new() -> Self {
-
         let mut sprites = vec![];
 
         let mut player: GameSprite = GameSprite::Player {
@@ -23,7 +22,11 @@ impl<'a> Game<'a> {
             size: cgmath::Point3 { x: 1.0, y: 1.0, z: 1.0 }, 
             health_points: 10, 
             movement_speed: 0.1, 
-            weapon: Weapon::Spread, 
+            weapon: Weapon::Spread {
+                power: 1,
+                color: cgmath::Point3 { x: 1.0, y: 1.0, z: 1.0},
+                speed: 1,
+            }, 
             lives: 5, 
             renderable: None 
         };
@@ -47,6 +50,8 @@ impl<'a> Game<'a> {
 
         let mut controllers = vec![];
 
+        controllers.push(player_controller);
+
         let mut levels = vec![];
 
         Self {
@@ -54,6 +59,12 @@ impl<'a> Game<'a> {
             controllers,
             levels
         }
+    }
+
+    pub fn for_each_sprite(&self, sprite_callback: fn(sprite: &GameSprite)) {
+        self.sprites.iter().for_each(|sprite| {
+            sprite_callback(&sprite);
+        })
     }
 
     pub fn handle_window_input(&mut self, event: &WindowEvent, control_flow: &EventLoopWindowTarget<()>) {

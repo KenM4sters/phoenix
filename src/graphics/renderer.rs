@@ -1,4 +1,6 @@
-use super::{camera::OrthographicCamera, pipeline::PipelineManager};
+use crate::game::camera::OrthographicCamera;
+
+use super::{pipeline::PipelineManager};
 
 pub struct Renderer {
     pipeline_manager: PipelineManager,

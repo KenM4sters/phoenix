@@ -4,8 +4,16 @@ use super::game::Game;
 
 #[derive(Debug)]
 pub enum Weapon {
-    Narrow,
-    Spread,
+    Narrow {
+        power: u32,
+        color: cgmath::Point3<f32>,
+        speed: u32
+    },
+    Spread {
+        power: u32,
+        color: cgmath::Point3<f32>,
+        speed: u32
+    },
 }
 
 #[derive(Debug)]

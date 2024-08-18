@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use super::shader::{ShaderProgram};
-
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub struct PipelineMapKey {
     vertex_path: String,
@@ -10,7 +8,7 @@ pub struct PipelineMapKey {
 
 pub struct PipelineManager {
     pipeline_map: HashMap<PipelineMapKey, wgpu::RenderPipeline>
-}
+} 
 
 impl PipelineManager {
     pub fn new() -> Self {

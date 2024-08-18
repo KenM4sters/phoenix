@@ -41,6 +41,8 @@ impl<'a> Program<'a> {
 
             self.game.update();
 
+            self.graphics.update();
+
             let _ = self.graphics.render(&self.game);
         });
     }
@@ -59,10 +61,7 @@ impl<'a> Program<'a> {
             } => {
                 control_flow.exit()
             },
-            WindowEvent::Resized(mut physical_size) => {
-                physical_size.width /= self.window.scale_factor() as u32;
-                physical_size.height /= self.window.scale_factor() as u32;
-        
+            WindowEvent::Resized(physical_size) => {        
                 self.graphics.resize(&physical_size);
             },
             WindowEvent::KeyboardInput {
@@ -73,9 +72,7 @@ impl<'a> Program<'a> {
                         ..
                     },
                 ..
-            } => {
-
-            }
+            } => {}
             _ => {}
         }
     }
