@@ -2,7 +2,7 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::game::game::Game;
 
-use super::renderer::Renderer;
+use super::{device::Device, pipeline::PipelineManager, renderer::Renderer, vertex_input::{INDICES, VERTICES}};
 
 
 pub struct Graphics<'a> {
@@ -10,10 +10,12 @@ pub struct Graphics<'a> {
     surface: wgpu::Surface<'a>,
     surface_config: wgpu::SurfaceConfiguration,
     adapter: wgpu::Adapter,
-    logical_device: wgpu::Device,
-    queue: wgpu::Queue,
+    device: Device,
     size: winit::dpi::PhysicalSize<u32>,
-    renderer: Renderer
+    renderer: Renderer,
+    pipeline_manager: PipelineManager,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
 }
 
 impl<'a> Graphics<'a> {
@@ -38,16 +40,7 @@ impl<'a> Graphics<'a> {
             force_fallback_adapter: false
         }).await.unwrap();
 
-        let (logical_device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            required_features: wgpu::Features::empty(),
-            #[cfg(not(target_arch="wasm32"))]
-            required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-            #[cfg(target_arch="wasm32")]
-            requred_limits: wgpu::Limits::default(),
-            memory_hints: wgpu::MemoryHints::Performance,
-            label: None
-        }, 
-        None).await.unwrap();
+        let device = Device::new(&adapter).await; 
 
         let surface_caps = surface.get_capabilities(&adapter);
 
@@ -67,19 +60,27 @@ impl<'a> Graphics<'a> {
             desired_maximum_frame_latency: 2,
         };
 
-        surface.configure(&logical_device, &surface_config);
+        surface.configure(&device.logical_device, &surface_config);
 
         let renderer = Renderer::new(size);
+
+        let pipeline_manager = PipelineManager::new(&device.logical_device, &surface_format);
+
+        let vertex_buffer = device.create_buffer( bytemuck::cast_slice(VERTICES), wgpu::BufferUsages::VERTEX);
+
+        let index_buffer = device.create_buffer( bytemuck::cast_slice(INDICES), wgpu::BufferUsages::INDEX);
 
         Self {
             instance,
             surface,
             surface_config,
             adapter,
-            logical_device,
-            queue,
+            device,
             size,
-            renderer
+            renderer,
+            pipeline_manager,
+            vertex_buffer,
+            index_buffer
         }
     }
 
@@ -87,7 +88,7 @@ impl<'a> Graphics<'a> {
         self.surface_config.width = new_size.width;
         self.surface_config.height = new_size.height;
         
-        self.surface.configure(&self.logical_device, &self.surface_config);
+        self.surface.configure(&self.device.logical_device, &self.surface_config);
     }
 
     pub fn update(&self) {
@@ -101,12 +102,12 @@ impl<'a> Graphics<'a> {
         
         let view = target.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let mut encoder = self.logical_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+        let mut encoder = self.device.logical_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder")
         });
 
         {
-            let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
@@ -125,12 +126,20 @@ impl<'a> Graphics<'a> {
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
+
+            render_pass.set_pipeline(&self.pipeline_manager.player_pipeline);
+
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+
+            render_pass.draw_indexed(0..6, 0, 0..1);
         }
 
         game.for_each_sprite(|sprite| {
         });
 
-        self.queue.submit(std::iter::once(encoder.finish()));
+        self.device.queue.submit(std::iter::once(encoder.finish()));
         
         target.present();
     

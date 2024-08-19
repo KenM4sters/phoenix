@@ -2,12 +2,11 @@ use std::fs;
 
 
 pub struct ShaderModule {
-    context_handle: wgpu::ShaderModule
+    pub context_handle: wgpu::ShaderModule
 }
 
 impl ShaderModule {
     pub fn new(logical_device: &wgpu::Device, code_path: &str) -> Self {
-
         let code = fs::read_to_string(code_path)
             .expect("Failed to read shader file!");
         
@@ -20,9 +19,4 @@ impl ShaderModule {
             context_handle: shader_module
         }
     }
-}
-
-pub struct ShaderProgram {
-    vertex_module: ShaderModule,
-    fragment_module: ShaderModule
 }

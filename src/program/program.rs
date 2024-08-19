@@ -6,7 +6,7 @@ use winit::{
 use crate::{game::game::Game, graphics::graphics::Graphics};
 
 pub struct Program<'a> {
-    game: Game<'a>,
+    game: Game,
     graphics: Graphics<'a>,
     window: &'a Window,   
 }

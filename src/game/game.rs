@@ -1,18 +1,14 @@
-use std::u32;
-
-use wgpu::naga::back::Level;
 use winit::{event::{ElementState, KeyEvent, WindowEvent}, event_loop::{EventLoop, EventLoopWindowTarget}, keyboard::{Key, KeyCode, PhysicalKey}};
 
 use super::{controller::Controller, sprite::{GameSprite, Weapon}};
 
 
-pub struct Game<'a> {
-    sprites: Vec<GameSprite<'a>>,
+pub struct Game {
+    sprites: Vec<GameSprite>,
     controllers: Vec<Controller>,
-    levels: Vec<Level>,
 }
 
-impl<'a> Game<'a> {
+impl Game {
     pub fn new() -> Self {
         let mut sprites = vec![];
 
@@ -27,8 +23,7 @@ impl<'a> Game<'a> {
                 color: cgmath::Point3 { x: 1.0, y: 1.0, z: 1.0},
                 speed: 1,
             }, 
-            lives: 5, 
-            renderable: None 
+            lives: 5,  
         };
 
         sprites.push(player);
@@ -52,12 +47,9 @@ impl<'a> Game<'a> {
 
         controllers.push(player_controller);
 
-        let mut levels = vec![];
-
         Self {
             sprites,
             controllers,
-            levels
         }
     }
 
