@@ -24,6 +24,7 @@ pub struct Vertex {
     uv: [f32; 2]
 }
 
+
 impl Vertex {
     pub fn buffer_layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {

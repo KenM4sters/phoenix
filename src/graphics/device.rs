@@ -1,7 +1,5 @@
 use wgpu::util::DeviceExt;
 
-
-
 pub struct Device {
     pub logical_device: wgpu::Device,
     pub queue: wgpu::Queue

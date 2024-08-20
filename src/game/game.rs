@@ -1,7 +1,126 @@
-use winit::{event::{ElementState, KeyEvent, WindowEvent}, event_loop::{EventLoop, EventLoopWindowTarget}, keyboard::{Key, KeyCode, PhysicalKey}};
+use winit::{event::{ElementState, KeyEvent, WindowEvent}, event_loop::EventLoopWindowTarget, keyboard::{KeyCode, PhysicalKey}};
 
-use super::{controller::Controller, sprite::{GameSprite, Weapon}};
+use super::controller::Controller;
 
+use cgmath::{Point3, Vector3};
+
+
+// Camera
+
+#[rustfmt::skip]
+pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
+    1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 0.5, 0.5,
+    0.0, 0.0, 0.0, 1.0,
+);
+
+pub struct OrthographicCamera {
+    position: cgmath::Point3<f32>,
+    target: cgmath::Point3<f32>,
+    up: cgmath::Vector3<f32>,
+    left: f32,
+    right: f32,
+    bottom: f32,
+    top: f32,
+    near: f32,
+    far: f32,   
+    view_matrix: cgmath::Matrix4<f32>,
+    projection_matrix: cgmath::Matrix4<f32>
+}
+
+impl OrthographicCamera {
+    pub fn new(position: cgmath::Point3<f32>, target: Point3<f32>, up: Vector3<f32>, left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32,) -> Self {
+        let view_matrix = cgmath::Matrix4::look_at_rh(position, target, up);
+        let projection_matrix = cgmath::ortho(left, right, bottom, top, near, far);
+        // let projection_matrix = cgmath::perspective(cgmath::Deg(45.0), 1.0, near, far);
+        
+        Self {
+            position,
+            target,
+            up,
+            left,
+            right,
+            bottom,
+            top,
+            near,
+            far,
+            view_matrix,
+            projection_matrix
+        }
+    }
+
+    pub fn view_projection_matrix(&self) -> cgmath::Matrix4<f32> {
+        OPENGL_TO_WGPU_MATRIX * self.projection_matrix * self.view_matrix
+    }
+
+    pub fn resize(&mut self, left: f32, right: f32, bottom: f32, top: f32) {
+        self.left = left;
+        self.right = right;
+        self.bottom = bottom;
+        self.top = top;
+
+        self.projection_matrix = cgmath::ortho(self.left, self.right, self.bottom, self.top, self.near, self.far);
+    }
+}
+
+
+
+
+
+
+// Sprites
+
+#[derive(Debug)]
+pub enum Weapon {
+    Narrow {
+        power: u32,
+        color: cgmath::Point3<f32>,
+        speed: u32
+    },
+    Spread {
+        power: u32,
+        color: cgmath::Point3<f32>,
+        speed: u32
+    },
+}
+
+
+#[derive(Debug)]
+pub enum GameSprite {
+    Player {
+        position: cgmath::Point3<f32>,
+        rotation: cgmath::Quaternion<f32>,
+        size: cgmath::Point3<f32>,
+        health_points: u32,
+        movement_speed: f32,
+        weapon: Weapon,
+        lives: u32
+    },
+    Enemy {
+        position: cgmath::Point3<f32>,
+        rotation: cgmath::Quaternion<f32>,
+        size: cgmath::Point3<f32>,
+        health_points: u32,
+        movement_speed: f32,
+        weapon: Weapon,
+        lives: u32,
+        ai_component: Option<()>
+    },
+    Bullet {
+        position: cgmath::Point3<f32>,
+        rotation: cgmath::Quaternion<f32>,
+        size: cgmath::Point3<f32>,
+        movement_speed: f32,
+    }
+}
+
+
+
+
+
+
+// Game
 
 pub struct Game {
     sprites: Vec<GameSprite>,

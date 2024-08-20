@@ -2,20 +2,15 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::game::game::Game;
 
-use super::{device::Device, pipeline::PipelineManager, renderer::Renderer, vertex_input::{INDICES, VERTICES}};
+use super::{device::Device, renderer::Renderer};
 
 
 pub struct Graphics<'a> {
-    instance: wgpu::Instance,
     surface: wgpu::Surface<'a>,
     surface_config: wgpu::SurfaceConfiguration,
-    adapter: wgpu::Adapter,
     device: Device,
     size: winit::dpi::PhysicalSize<u32>,
     renderer: Renderer,
-    pipeline_manager: PipelineManager,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
 }
 
 impl<'a> Graphics<'a> {
@@ -62,25 +57,14 @@ impl<'a> Graphics<'a> {
 
         surface.configure(&device.logical_device, &surface_config);
 
-        let renderer = Renderer::new(size);
-
-        let pipeline_manager = PipelineManager::new(&device.logical_device, &surface_format);
-
-        let vertex_buffer = device.create_buffer( bytemuck::cast_slice(VERTICES), wgpu::BufferUsages::VERTEX);
-
-        let index_buffer = device.create_buffer( bytemuck::cast_slice(INDICES), wgpu::BufferUsages::INDEX);
+        let renderer = Renderer::new(&device, &surface_format);
 
         Self {
-            instance,
             surface,
             surface_config,
-            adapter,
             device,
             size,
             renderer,
-            pipeline_manager,
-            vertex_buffer,
-            index_buffer
         }
     }
 
@@ -127,17 +111,8 @@ impl<'a> Graphics<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&self.pipeline_manager.player_pipeline);
-
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-
-            render_pass.draw_indexed(0..6, 0, 0..1);
+            self.renderer.render(&mut render_pass, game);
         }
-
-        game.for_each_sprite(|sprite| {
-        });
 
         self.device.queue.submit(std::iter::once(encoder.finish()));
         
