@@ -7,7 +7,7 @@ use crate::{world::world::World, graphics::graphics::Graphics};
 
 
 pub struct Program<'a> {
-    world: World<'a>,
+    world: World,
     graphics: Graphics,
     window: &'a Window,   
 }
@@ -46,7 +46,7 @@ impl<'a> Program<'a> {
 
             self.graphics.update(&self.world);
 
-            let _ = self.graphics.render();
+            self.graphics.render(&self.window);
         });
     }
 

@@ -8,7 +8,6 @@ use super::{device::Device, shader::ShaderModule, vertex_input::{Vertex, INDICES
 
 
 pub struct Renderer {
-    player_uniform: PlayerUniform,
     player_pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
@@ -20,12 +19,6 @@ pub struct Renderer {
 pub struct CameraUniform {
     view_projection: [[f32; 4]; 4]
 } 
-
-#[repr(C)]
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct PlayerUniform {
-    model: [[f32; 4]; 4]
-}
 
 impl Renderer {
     pub fn new(device: &Device, target_texture_format: &wgpu::TextureFormat) -> Self {
@@ -142,10 +135,10 @@ impl Renderer {
     }
 
     pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+        // First Order Bind Groups
+        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
         render_pass.set_pipeline(&self.player_pipeline);
-
-        render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
 
         render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
 

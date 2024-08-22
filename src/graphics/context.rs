@@ -1,9 +1,6 @@
-use std::collections::{hash_map, HashMap};
+use std::collections::HashMap;
 
 use wgpu::util::DeviceExt;
-
-
-
 
 pub struct Buffer {
     pub buffer: wgpu::Buffer,
@@ -32,14 +29,21 @@ pub struct Pipeline {
 
 }
 
+pub struct RenderPayload<'a> {
+    vertex_buffer: &'a Buffer,
+    index_buffer: &'a Buffer,
+    pipeline: &'a Pipeline,
+    unique_uniforms: &'a Option<Vec<BindGroup>>,
+}
 
 pub struct GraphicsContext {
-    map: std::collections::HashMap<String, Vec<GraphicsPart>>
+    parts: Vec<GraphicsPart>,
+    
 }
 
 impl GraphicsContext {
     pub fn new() -> Self {
-        let map = HashMap::new();
+        let parts = vec![];
 
         Self {
             map
@@ -47,7 +51,7 @@ impl GraphicsContext {
     }
 
     pub fn add_part(&mut self, part: GraphicsPart, name: String) -> Result<(), ()> {
-        let mut parts = self.map.get_mut(&name);
+        let parts = self.map.get_mut(&name);
 
         match parts {
             Some(parts) => {

@@ -3,7 +3,7 @@ use bytemuck::{Pod, Zeroable};
 
 
 // lib.rs
-pub const VERTICES: &[Vertex] = &[
+pub static VERTICES: &[Vertex] = &[
     // Front face
     Vertex{position: [-1.0, -1.0,  1.0], normal: [0.0,  0.0,  1.0], uv: [0.0, 0.0]},// Bottom-left
     Vertex{position: [1.0, -1.0,  1.0], normal: [0.0,  0.0,  1.0], uv: [1.0, 0.0]},// Bottom-right

@@ -1,11 +1,10 @@
+use egui_wgpu::renderer::ScreenDescriptor;
 use winit::{dpi::PhysicalSize, window::Window};
 
-use wgpu::{Device as WgpuDevice, SurfaceConfiguration}; // Alias wgpu Device to WgpuDevice
-use egui_wgpu::renderer::Renderer as EguiRenderer; // Alias egui_wgpu Renderer to EguiRenderer
 
 use crate::world::world::World;
 
-use super::{device::Device, gui::Gui, renderer::Renderer};
+use super::{device::Device, gui::{example_gui, Gui}, renderer::Renderer};
 
 
 pub struct Graphics {
@@ -62,7 +61,7 @@ impl Graphics {
 
         let renderer = Renderer::new(&device, &surface_format);
 
-        let gui = Gui::new(&device.logical_device, surface_format.clone());
+        let gui = Gui::new(&device.logical_device, surface_format.clone(), None, &window);
 
         Self {
             surface,
@@ -85,7 +84,7 @@ impl Graphics {
         
     }
 
-    pub fn render(&self) -> Result<(), ()> {
+    pub fn render(&mut self, window: &Window) {
         let target = self.surface
             .get_current_texture()
             .expect("Target is not ok!");
@@ -145,11 +144,24 @@ impl Graphics {
             self.renderer.render(&mut render_pass);
         }
     
+        let screen_descriptor = ScreenDescriptor {
+            size_in_pixels: [self.surface_config.width, self.surface_config.height],
+            pixels_per_point: window.scale_factor() as f32,
+        };
+
+        self.gui.draw(
+            &self.device,
+            &mut encoder,
+            &window,
+            &view,
+            screen_descriptor,
+            |ui| example_gui(ui),
+        );
+
         self.device.queue.submit(std::iter::once(encoder.finish()));
         
         target.present();
     
-        Ok(())
     }    
 }
 

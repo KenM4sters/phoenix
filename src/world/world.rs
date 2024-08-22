@@ -1,5 +1,7 @@
 
 
+use core::slice::SlicePattern;
+
 use cgmath::num_traits::zero;
 use winit::{event::{ElementState, KeyEvent, WindowEvent}, event_loop::EventLoopWindowTarget, keyboard::{KeyCode, PhysicalKey}};
 
@@ -25,20 +27,20 @@ impl Default for Transform {
     }
 }
 
-pub struct Cube<'a> {
-    vertices: &'a[Vertex],
-    indices: &'a[u16],
+pub struct Cube {   
+    vertices: Vec<Vertex>,
+    indices: Vec<u16>,
     transform: Transform
 }
 
 // World
-pub struct World<'a> {
+pub struct World {
     controllers: Vec<Controller>,
     camera: PerspectiveCamera,
-    cube: Cube<'a>
+    cube: Cube
 }
 
-impl<'a> World<'a> {
+impl World {
     pub fn new() -> Self {
 
         let controllers = vec![];
@@ -50,8 +52,8 @@ impl<'a> World<'a> {
             .build();
 
         let cube = Cube {
-            vertices: &VERTICES,
-            indices: &INDICES,
+            vertices: VERTICES.to_vec(),
+            indices: INDICES.to_vec(),
             transform: Transform::default()
         };
 
