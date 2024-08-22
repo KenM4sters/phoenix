@@ -1,5 +1,7 @@
 use wgpu::util::DeviceExt;
 
+
+
 pub struct Device {
     pub logical_device: wgpu::Device,
     pub queue: wgpu::Queue
@@ -8,12 +10,8 @@ pub struct Device {
 impl Device {
     pub async fn new(adapter: &wgpu::Adapter) -> Self {
         let (logical_device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            required_features: wgpu::Features::empty(),
-            #[cfg(not(target_arch="wasm32"))]
-            required_limits: wgpu::Limits::downlevel_webgl2_defaults(),
-            #[cfg(target_arch="wasm32")]
-            requred_limits: wgpu::Limits::default(),
-            memory_hints: wgpu::MemoryHints::Performance,
+            features: wgpu::Features::default(),
+            limits: wgpu::Limits::default(),
             label: None
         }, 
         None).await.unwrap();

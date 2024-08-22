@@ -7,7 +7,8 @@ struct VertexInput {
 }
 
 struct VertexOutput {
-    @builtin(position) clip_position: vec4<f32>
+    @builtin(position) clip_position: vec4<f32>,
+    @location(1) vertex_color: vec3<f32>
 }
 
 struct CameraUniform {
@@ -23,6 +24,7 @@ var<uniform> camera: CameraUniform;
 fn vs_main(vertices: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = camera.view_projection * vec4<f32>(vertices.a_position, 1.0);
+    out.vertex_color = vertices.a_normal;
     return out;
 } 
 
@@ -30,5 +32,5 @@ fn vs_main(vertices: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 0.0, 0.4, 1.0);
+    return vec4<f32>(in.vertex_color, 1.0);
 }

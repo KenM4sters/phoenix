@@ -1,16 +1,15 @@
 
+use camera::{CameraBuilder, CameraType};
 use cgmath::SquareMatrix;
 
-use crate::game::game::*;
+use crate::world::*;
 
 use super::{device::Device, shader::ShaderModule, vertex_input::{Vertex, INDICES, VERTICES}};
 
 
 pub struct Renderer {
-    camera: OrthographicCamera,
     player_uniform: PlayerUniform,
     player_pipeline: wgpu::RenderPipeline,
-    enemy_one_pipeline: wgpu::RenderPipeline,
     camera_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
@@ -30,16 +29,17 @@ pub struct PlayerUniform {
 
 impl Renderer {
     pub fn new(device: &Device, target_texture_format: &wgpu::TextureFormat) -> Self {
-
-        // Vertices 
-
-        let vertex_buffer = device.create_buffer( bytemuck::cast_slice(VERTICES), wgpu::BufferUsages::VERTEX);
-
-        let index_buffer = device.create_buffer( bytemuck::cast_slice(INDICES), wgpu::BufferUsages::INDEX);
-
-        // Camera Bind Group
-        let camera = OrthographicCamera::new(cgmath::Point3 { x: 0.0, y: 0.0, z: 2.0 }, cgmath::Point3 { x: 0.0, y: 0.0, z: 0.0 }, cgmath::Vector3::unit_y(), -1.0, 1.0, -1.0, 1.0, 0.1, 1.0);
         
+        let vertex_buffer = device.create_buffer(bytemuck::cast_slice(&VERTICES), wgpu::BufferUsages::VERTEX);
+
+        let index_buffer = device.create_buffer(bytemuck::cast_slice(&INDICES), wgpu::BufferUsages::INDEX);
+
+        let camera = CameraBuilder::new()
+            .with_position((0.0, 0.0, 5.0).into())
+            .with_target((0.0, 0.0, 0.0).into())
+            .with_type(CameraType::Perspective)
+            .build();
+
         let camera_uniform = CameraUniform { 
             view_projection: camera.view_projection_matrix().into() 
         };
@@ -98,7 +98,6 @@ impl Renderer {
                 module: &player_shader.context_handle,
                 entry_point: "vs_main",
                 buffers: &[Vertex::buffer_layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default()
             },
             fragment: Some(wgpu::FragmentState {
                 module: &player_shader.context_handle,
@@ -108,58 +107,6 @@ impl Renderer {
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL
                 })],
-                compilation_options: wgpu::PipelineCompilationOptions::default()
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Cw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false
-            },
-            multiview: None,
-            cache: None
-        });
-
-
-        // Enemy One
-
-        let enemy_one_shader = ShaderModule::new(&device.logical_device, "./src/assets/shaders/player.wgsl");
-
-        let enemy_one_pipeline_layout = device.logical_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("enemy_one_pipeline_layout"),
-            bind_group_layouts: &[
-                &camera_bind_group_layout
-            ],
-            push_constant_ranges: &[]
-        }); 
-
-        let enemy_one_pipeline = device.logical_device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("enemy_one_pipeline"),
-            layout: Some(&enemy_one_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &enemy_one_shader.context_handle,
-                entry_point: "vs_main",
-                buffers: &[Vertex::buffer_layout()],
-                compilation_options: wgpu::PipelineCompilationOptions::default()
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &enemy_one_shader.context_handle,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: *target_texture_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default()
             }),
             primitive: wgpu::PrimitiveState {
                 topology: wgpu::PrimitiveTopology::TriangleList,
@@ -170,28 +117,32 @@ impl Renderer {
                 unclipped_depth: false,
                 conservative: false
             },
-            depth_stencil: None,
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: wgpu::TextureFormat::Depth32Float, // Example format
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less, // Typical depth function
+                stencil: wgpu::StencilState::default(), // Default stencil settings
+                bias: wgpu::DepthBiasState::default(), // Default depth bias
+            }),
             multisample: wgpu::MultisampleState {
                 count: 1,
                 mask: !0,
                 alpha_to_coverage_enabled: false
             },
             multiview: None,
-            cache: None
         });
 
         Self {
-            camera,
             player_uniform,
             player_pipeline,
-            enemy_one_pipeline,
             camera_bind_group,
             vertex_buffer,
             index_buffer
         }
     }
 
-    pub fn render(&self, render_pass: &mut wgpu::RenderPass, game: &Game) {
+    pub fn render<'a>(&'a self, render_pass: &mut wgpu::RenderPass<'a>) {
+
         render_pass.set_pipeline(&self.player_pipeline);
 
         render_pass.set_bind_group(0, &self.camera_bind_group, &[]);

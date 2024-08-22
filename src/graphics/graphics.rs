@@ -1,20 +1,24 @@
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::game::game::Game;
+use wgpu::{Device as WgpuDevice, SurfaceConfiguration}; // Alias wgpu Device to WgpuDevice
+use egui_wgpu::renderer::Renderer as EguiRenderer; // Alias egui_wgpu Renderer to EguiRenderer
 
-use super::{device::Device, renderer::Renderer};
+use crate::world::world::World;
+
+use super::{device::Device, gui::Gui, renderer::Renderer};
 
 
-pub struct Graphics<'a> {
-    surface: wgpu::Surface<'a>,
+pub struct Graphics {
+    surface: wgpu::Surface,
     surface_config: wgpu::SurfaceConfiguration,
     device: Device,
     size: winit::dpi::PhysicalSize<u32>,
     renderer: Renderer,
+    gui: Gui,
 }
 
-impl<'a> Graphics<'a> {
-    pub async fn new(window: &'a Window) -> Self 
+impl Graphics {
+    pub async fn new(window: &Window) -> Self 
     {
         let size = window.inner_size();
 
@@ -26,7 +30,7 @@ impl<'a> Graphics<'a> {
             ..Default::default()
         });
         
-        let surface = instance.create_surface(window).unwrap();
+        let surface = unsafe { instance.create_surface(window).unwrap() };
         
 
         let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -52,12 +56,13 @@ impl<'a> Graphics<'a> {
             present_mode: surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
-            desired_maximum_frame_latency: 2,
         };
 
         surface.configure(&device.logical_device, &surface_config);
 
         let renderer = Renderer::new(&device, &surface_format);
+
+        let gui = Gui::new(&device.logical_device, surface_format.clone());
 
         Self {
             surface,
@@ -65,6 +70,7 @@ impl<'a> Graphics<'a> {
             device,
             size,
             renderer,
+            gui
         }
     }
 
@@ -75,16 +81,34 @@ impl<'a> Graphics<'a> {
         self.surface.configure(&self.device.logical_device, &self.surface_config);
     }
 
-    pub fn update(&self) {
+    pub fn update(&mut self, world: &World) {
         
     }
 
-    pub fn render(&self, game: &Game) -> Result<(), ()> {
+    pub fn render(&self) -> Result<(), ()> {
         let target = self.surface
             .get_current_texture()
             .expect("Target is not ok!");
         
         let view = target.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let depth_texture = self.device.logical_device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Depth Texture"),
+            size: wgpu::Extent3d {
+                width: 1600,
+                height: 1200,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float, // Match this to the format in your pipeline
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        
+        let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        
 
         let mut encoder = self.device.logical_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("Render Encoder")
@@ -106,14 +130,21 @@ impl<'a> Graphics<'a> {
                         store: wgpu::StoreOp::Store,
                     }
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None
+                }),
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });
 
-            self.renderer.render(&mut render_pass, game);
+            self.renderer.render(&mut render_pass);
         }
-
+    
         self.device.queue.submit(std::iter::once(encoder.finish()));
         
         target.present();
