@@ -4,13 +4,11 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::world::world::World;
 
-use super::{device::Device, gui::{example_gui, Gui}, shader::ShaderModule, renderer::Renderer, vertex_input::{Vertex, SQUARE_INDICES, SQUARE_VERTICES}};
+use super::{context::Context, gui::{example_gui, Gui}, renderer::Renderer, shader::ShaderModule, vertex_input::{Vertex, SQUARE_INDICES, SQUARE_VERTICES}};
 
 
 pub struct Graphics {
-    surface: wgpu::Surface,
-    surface_config: wgpu::SurfaceConfiguration,
-    device: Device,
+    ctx: Context,
     size: winit::dpi::PhysicalSize<u32>,
     renderer: Renderer,
     gui: Gui,
@@ -29,43 +27,10 @@ impl Graphics {
     {
         let size = window.inner_size();
 
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            #[cfg(not(target_arch="wasm32"))]
-            backends: wgpu::Backends::PRIMARY,
-            #[cfg(target_arch="wasm32")]
-            backends: wgpu::Backends::GL,
-            ..Default::default()
-        });
-        
-        let surface = unsafe { instance.create_surface(window).unwrap() };
-        
+        let ctx = Context::new(size.clone(), &window).await; 
 
-        let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false
-        }).await.unwrap();
-
-        let device = Device::new(&adapter).await; 
-
-        let surface_caps = surface.get_capabilities(&adapter);
-
-        let surface_format = surface_caps.formats.iter()
-            .find(|f| f.is_srgb())
-            .copied()
-            .unwrap_or(surface_caps.formats[0]);
-
-        let surface_config = wgpu::SurfaceConfiguration {
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            format: surface_format,
-            width: size.width,
-            height: size.height,
-            present_mode: surface_caps.present_modes[0],
-            alpha_mode: surface_caps.alpha_modes[0],
-            view_formats: vec![],
-        };
-
-        surface.configure(&device.logical_device, &surface_config);
+        let device = &ctx.device;
+        let surface_format = &ctx.surface_config.format;
 
         let gui = Gui::new(&device.logical_device, surface_format.clone(), None, &window);
 
@@ -84,7 +49,7 @@ impl Graphics {
             view_formats: &[],
         });
 
-        let renderer = Renderer::new(&world, &device, &world_color_texture.format());
+        let renderer = Renderer::new(&world, &ctx, &world_color_texture.format());
 
 
         let world_color_texture_view = world_color_texture.create_view(&wgpu::TextureViewDescriptor::default());
@@ -107,9 +72,9 @@ impl Graphics {
         let world_depth_texture_view = world_depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
 
-        let square_vertex_buffer = device.create_buffer(bytemuck::cast_slice(&SQUARE_VERTICES), wgpu::BufferUsages::VERTEX);
+        let square_vertex_buffer = ctx.create_buffer(bytemuck::cast_slice(&SQUARE_VERTICES), wgpu::BufferUsages::VERTEX);
 
-        let square_index_buffer = device.create_buffer(bytemuck::cast_slice(&SQUARE_INDICES), wgpu::BufferUsages::INDEX);
+        let square_index_buffer = ctx.create_buffer(bytemuck::cast_slice(&SQUARE_INDICES), wgpu::BufferUsages::INDEX);
 
 
         let world_texture_sampler = device.logical_device.create_sampler(&wgpu::SamplerDescriptor::default());
@@ -173,7 +138,7 @@ impl Graphics {
                 module: &screen_quad_shader.context_handle,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: surface_format,
+                    format: *surface_format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL
                 })],
@@ -196,10 +161,9 @@ impl Graphics {
             multiview: None,
         });
 
+
         Self {
-            surface,
-            surface_config,
-            device,
+            ctx,
             size,
             renderer,
             gui,
@@ -210,40 +174,35 @@ impl Graphics {
             square_vertex_buffer,
             square_index_buffer,
             world_texture_bind_group,
-            screen_quad_pipeline
+            screen_quad_pipeline,
         }
     }
 
     pub fn resize(&mut self, new_size: &PhysicalSize<u32>) {
-        self.surface_config.width = new_size.width;
-        self.surface_config.height = new_size.height;
-        
-        self.surface.configure(&self.device.logical_device, &self.surface_config);
+        self.ctx.resize(new_size);
     }
 
     pub fn update(&mut self, world: &World) {
-        self.renderer.update(&world, &self.device);
+        self.renderer.update(&world, &self.ctx);
     }
 
     pub fn render(&mut self, window: &Window) {
 
-        let mut encoder = self.device.logical_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder")
-        });
+        let mut encoder = self.ctx.create_encoder("command_encoder");
 
         self.renderer.render(&mut encoder, &self.world_color_texture_view, &self.world_depth_texture_view);
 
-        let target = self.surface
+        let surface_texture = self.ctx.surface
             .get_current_texture()
-            .expect("Target is not ok!");
-        
-        let view = target.texture.create_view(&wgpu::TextureViewDescriptor::default());
-    
+            .expect("");
+
+        let surface_texture_view = surface_texture.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("screen_quad_render_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
+                    view: &surface_texture_view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -272,23 +231,22 @@ impl Graphics {
         }
     
         let screen_descriptor = ScreenDescriptor {
-            size_in_pixels: [self.surface_config.width, self.surface_config.height],
+            size_in_pixels: [self.ctx.surface_config.width, self.ctx.surface_config.height],
             pixels_per_point: window.scale_factor() as f32,
         };
 
         self.gui.draw(
-            &self.device,
+            &self.ctx.device,
             &mut encoder,
             &window,
-            &view,
+            &surface_texture_view,
             screen_descriptor,
             |ui| example_gui(ui),
         );
 
-        self.device.queue.submit(std::iter::once(encoder.finish()));
-        
-        target.present();
-    
+        self.ctx.device.queue.submit(std::iter::once(encoder.finish()));
+
+        surface_texture.present();
     }    
 }
 

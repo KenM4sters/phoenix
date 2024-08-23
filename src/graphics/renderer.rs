@@ -3,7 +3,7 @@ use world::World;
 
 use crate::world::*;
 
-use super::{device::Device, shader::ShaderModule, vertex_input::{Vertex, CUBE_INDICES, CUBE_VERTICES}};
+use super::{context::{Context, Device}, shader::ShaderModule, vertex_input::{Vertex, CUBE_INDICES, CUBE_VERTICES}};
 
 
 pub struct Renderer {
@@ -23,22 +23,24 @@ pub struct TransformUniform {
 } 
 
 impl Renderer {
-    pub fn new(world: &World, device: &Device, target_texture_format: &wgpu::TextureFormat) -> Self {
-        
+    pub fn new(world: &World, ctx: &Context, target_texture_format: &wgpu::TextureFormat) -> Self {
+
+        let device = &ctx.device;
+
         let camera = &world.camera;
 
         let cube = &world.cube;
 
-        let vertex_buffer = device.create_buffer(bytemuck::cast_slice(&CUBE_VERTICES), wgpu::BufferUsages::VERTEX);
+        let vertex_buffer = ctx.create_buffer(bytemuck::cast_slice(&CUBE_VERTICES), wgpu::BufferUsages::VERTEX);
 
-        let index_buffer = device.create_buffer(bytemuck::cast_slice(&CUBE_INDICES), wgpu::BufferUsages::INDEX);
+        let index_buffer = ctx.create_buffer(bytemuck::cast_slice(&CUBE_INDICES), wgpu::BufferUsages::INDEX);
 
 
         let camera_uniform = TransformUniform { 
             transform: camera.view_projection_matrix().into() 
         };
         
-        let camera_buffer = device.create_buffer(bytemuck::cast_slice(&[camera_uniform]), wgpu::BufferUsages::UNIFORM  | wgpu::BufferUsages::COPY_DST);
+        let camera_buffer = ctx.create_buffer(bytemuck::cast_slice(&[camera_uniform]), wgpu::BufferUsages::UNIFORM  | wgpu::BufferUsages::COPY_DST);
 
         let camera_bind_group_layout = device.logical_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -73,7 +75,7 @@ impl Renderer {
             transform: cube.model_matrix().into()
         }; 
 
-        let cube_transform_buffer = device.create_buffer(bytemuck::cast_slice(&[cube_uniform]), wgpu::BufferUsages::UNIFORM  | wgpu::BufferUsages::COPY_DST);
+        let cube_transform_buffer = ctx.create_buffer(bytemuck::cast_slice(&[cube_uniform]), wgpu::BufferUsages::UNIFORM  | wgpu::BufferUsages::COPY_DST);
 
         let cube_transform_bind_group_layout = device.logical_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             entries: &[
@@ -166,12 +168,12 @@ impl Renderer {
         }
     }
 
-    pub fn update(&self, world: &World, device: &Device) {
+    pub fn update(&self, world: &World, ctx: &Context) {
         let camera_uniform = TransformUniform {
             transform: world.camera.view_projection_matrix().into()
         };
 
-        device.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&camera_uniform.transform));
+        ctx.device.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&camera_uniform.transform));
     }
 
     pub fn render<'a>(&'a self, encoder: &mut wgpu::CommandEncoder, color_view: &wgpu::TextureView, depth_view: &wgpu::TextureView) {

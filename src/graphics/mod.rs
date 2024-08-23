@@ -1,5 +1,5 @@
 pub mod graphics;
-pub mod device;
+pub mod context;
 pub mod renderer;
 pub mod shader;
 pub mod vertex_input;

@@ -38,7 +38,7 @@ impl Gui {
 
     pub fn draw(
         &mut self,
-        device: &super::device::Device,
+        device: &super::context::Device,
         encoder: &mut CommandEncoder,
         window: &Window,
         window_surface_view: &TextureView,
