@@ -30,7 +30,7 @@ impl<'a> Program<'a> {
 
     pub async fn run(&mut self, world_loop: EventLoop<()>) {
         let _ = world_loop.run(move |event, control_flow| {
-            self.world.handle_window_input(&event, &control_flow);
+            self.world.handle_window_input(&event);
             match event {
                 Event::WindowEvent { 
                     window_id, event 

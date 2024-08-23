@@ -1,9 +1,9 @@
 
 
 use cgmath::{EuclideanSpace, SquareMatrix};
-use winit::{event::{DeviceEvent, ElementState, Event, KeyEvent, MouseButton, WindowEvent}, event_loop::EventLoopWindowTarget, keyboard::{KeyCode, PhysicalKey}};
+use winit::event::*;
 
-use crate::graphics::vertex_input::{Vertex, INDICES, VERTICES};
+use crate::graphics::vertex_input::{Vertex, CUBE_INDICES, CUBE_VERTICES};
 
 use super::camera::*;
 
@@ -64,8 +64,8 @@ impl World {
 
 
         let cube = Cube {
-            vertices: VERTICES.to_vec(),
-            indices: INDICES.to_vec(),
+            vertices: CUBE_VERTICES.to_vec(),
+            indices: CUBE_INDICES.to_vec(),
             transform: Transform::default()
         };
 
@@ -82,7 +82,7 @@ impl World {
 
     }
 
-    pub fn handle_window_input(&mut self, event: &Event<()>, control_flow: &EventLoopWindowTarget<()>) {
+    pub fn handle_window_input(&mut self, event: &Event<()>) {
         match event {
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::MouseInput { button, state, .. } => {

@@ -3,7 +3,7 @@ use bytemuck::{Pod, Zeroable};
 
 
 // lib.rs
-pub static VERTICES: &[Vertex] = &[
+pub static CUBE_VERTICES: &[Vertex] = &[
     // Front face
     Vertex{position: [-1.0, -1.0,  1.0], normal: [0.0,  0.0,  1.0], uv: [0.0, 0.0]},// Bottom-left
     Vertex{position: [1.0, -1.0,  1.0], normal: [0.0,  0.0,  1.0], uv: [1.0, 0.0]},// Bottom-right
@@ -37,7 +37,8 @@ pub static VERTICES: &[Vertex] = &[
             
 ];
 
-pub const INDICES: &[u16] = &[
+
+pub const CUBE_INDICES: &[u16] = &[
     // Front face
     0, 1, 2,
     2, 3, 0,
@@ -62,6 +63,20 @@ pub const INDICES: &[u16] = &[
     20, 21, 22,
     22, 23, 20,
 ];
+
+
+pub const SQUARE_VERTICES: &[Vertex] = &[
+    Vertex{position: [-1.0, -1.0,  1.0], normal: [0.0,  0.0,  1.0], uv: [0.0, 1.0]},// Bottom-left
+    Vertex{position: [1.0, -1.0,  1.0], normal: [0.0,  0.0,  1.0], uv: [1.0, 1.0]},// Bottom-right
+    Vertex{position: [1.0,  1.0,  1.0], normal: [0.0,  0.0,  1.0], uv: [1.0, 0.0]},// Top-right
+    Vertex{position: [-1.0,  1.0,  1.0], normal: [0.0,  0.0,  1.0], uv: [0.0, 0.0]},
+];
+
+pub const SQUARE_INDICES: &[u16] = &[
+    0, 1, 2,
+    2, 3, 0 
+];
+
 
 
 #[repr(C)]
