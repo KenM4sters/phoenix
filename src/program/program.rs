@@ -17,9 +17,7 @@ impl<'a> Program<'a> {
         
         let world = World::new();
     
-        let graphics = Graphics::new(&window).await;
-
-
+        let graphics = Graphics::new(&world, &window).await;
     
         env_logger::init();
 
@@ -32,12 +30,12 @@ impl<'a> Program<'a> {
 
     pub async fn run(&mut self, world_loop: EventLoop<()>) {
         let _ = world_loop.run(move |event, control_flow| {
+            self.world.handle_window_input(&event, &control_flow);
             match event {
                 Event::WindowEvent { 
                     window_id, event 
                 } if window_id == self.window.id() => {
                     self.handle_window_input(&event, &control_flow);
-                    self.world.handle_window_input(&event, &control_flow);
                 }
                 _ => {}
             }

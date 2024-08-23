@@ -17,7 +17,7 @@ pub struct Graphics {
 }
 
 impl Graphics {
-    pub async fn new(window: &Window) -> Self 
+    pub async fn new(world: &World, window: &Window) -> Self 
     {
         let size = window.inner_size();
 
@@ -59,7 +59,7 @@ impl Graphics {
 
         surface.configure(&device.logical_device, &surface_config);
 
-        let renderer = Renderer::new(&device, &surface_format);
+        let renderer = Renderer::new(&world, &device, &surface_format);
 
         let gui = Gui::new(&device.logical_device, surface_format.clone(), None, &window);
 
@@ -81,7 +81,7 @@ impl Graphics {
     }
 
     pub fn update(&mut self, world: &World) {
-        
+        self.renderer.update(&world, &self.device);
     }
 
     pub fn render(&mut self, window: &Window) {
