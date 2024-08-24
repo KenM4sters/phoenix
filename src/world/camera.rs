@@ -1,7 +1,5 @@
-use cgmath::{Angle, EuclideanSpace, SquareMatrix};
+use cgmath::{Angle, EuclideanSpace};
 use winit::event::MouseScrollDelta;
-
-use crate::graphics::renderer::TransformUniform;
 
 pub enum CameraType {
     Perspective = 0,
@@ -19,7 +17,7 @@ pub struct PerspectiveCamera {
     projection_matrix: cgmath::Matrix4<f32>,
     radius: f32,
     yaw: cgmath::Rad<f32>,
-    pitch: cgmath::Rad<f32>
+    pitch: cgmath::Rad<f32>,
 }
 
 impl PerspectiveCamera {

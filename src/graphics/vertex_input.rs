@@ -82,9 +82,9 @@ pub const SQUARE_INDICES: &[u16] = &[
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct Vertex {
-    position: [f32; 3],
-    normal: [f32; 3],
-    uv: [f32; 2]
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
+    pub uv: [f32; 2]
 }
 
 

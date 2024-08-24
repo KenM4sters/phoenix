@@ -1,5 +1,7 @@
 
 
+use std::rc::Rc;
+
 use cgmath::{EuclideanSpace, SquareMatrix};
 use winit::event::*;
 
@@ -9,9 +11,9 @@ use super::camera::*;
 
 #[derive(Debug)]
 pub struct Transform {
-    position: cgmath::Point3<f32>,
-    scale: cgmath::Vector3<f32>,
-    rotation: cgmath::Quaternion<f32>,
+    pub position: cgmath::Point3<f32>,
+    pub scale: cgmath::Vector3<f32>,
+    pub rotation: cgmath::Quaternion<f32>,
 }
 
 impl Default for Transform {
@@ -24,13 +26,17 @@ impl Default for Transform {
     }
 }
 
-pub struct Cube {   
-    pub vertices: Vec<Vertex>,
-    pub indices: Vec<u16>,
-    pub transform: Transform,
+pub struct Cube {
+    transform: Transform
 }
 
 impl Cube {
+    pub fn new(transform: Transform) -> Self {
+        Self {
+            transform
+        }
+    }   
+
     pub fn model_matrix(&self) -> cgmath::Matrix4<f32> {
         let model = cgmath::Matrix4::<f32>::identity();
 
@@ -48,8 +54,7 @@ impl Cube {
 // World
 pub struct World {
     pub camera: PerspectiveCamera,
-    pub cube: Cube,
-    last_mouse_pos: Option<(f32, f32)>
+    last_mouse_pos: Option<(f32, f32)>,
 }
 
 impl World {
@@ -62,18 +67,10 @@ impl World {
             .with_radius(10.0)
             .build();
 
-
-        let cube = Cube {
-            vertices: CUBE_VERTICES.to_vec(),
-            indices: CUBE_INDICES.to_vec(),
-            transform: Transform::default()
-        };
-
         let last_mouse_pos = None;
 
         Self {
             camera,
-            cube,
             last_mouse_pos
         }
     }

@@ -1,9 +1,9 @@
-use cgmath::SquareMatrix;
+
 use world::World;
 
 use crate::world::*;
 
-use super::{context::{Context, Device}, shader::ShaderModule, vertex_input::{Vertex, CUBE_INDICES, CUBE_VERTICES}};
+use super::{context::Context, shader::ShaderModule, vertex_input::{Vertex, CUBE_INDICES, CUBE_VERTICES}};
 
 
 pub struct Renderer {

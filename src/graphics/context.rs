@@ -1,4 +1,4 @@
-use wgpu::{util::DeviceExt, Adapter};
+use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct Device {
@@ -22,11 +22,13 @@ impl Device {
     }
 }
 
+
 pub struct Context {
     pub device: Device,
     pub surface: wgpu::Surface,
     pub surface_config: wgpu::SurfaceConfiguration
 }
+
 
 impl Context {
     pub async fn new(size: PhysicalSize<u32>, window: &Window) -> Self {
