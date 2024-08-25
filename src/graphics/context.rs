@@ -26,7 +26,10 @@ impl Device {
 pub struct Context {
     pub device: Device,
     pub surface: wgpu::Surface,
-    pub surface_config: wgpu::SurfaceConfiguration
+    pub surface_config: wgpu::SurfaceConfiguration,
+    pub render_pipelines: std::collections::HashMap<String, wgpu::RenderPipeline>,
+    pub bind_groups: std::collections::HashMap<String, wgpu::BindGroup>,
+    pub vertex_buffers: std::collections::HashMap<String, wgpu::Buffer>,
 }
 
 

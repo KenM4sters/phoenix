@@ -2,13 +2,13 @@ use egui_wgpu::renderer::ScreenDescriptor;
 use winit::{dpi::PhysicalSize, window::Window};
 
 
-use crate::world::world::World;
+use crate::world::{camera::PerspectiveCamera, world::World};
 
 use super::{context::Context, gui::{example_gui, Gui}, renderer::Renderer, shader::ShaderModule, vertex_input::{Vertex, SQUARE_INDICES, SQUARE_VERTICES}};
 
 
 pub struct Graphics {
-    ctx: Context,
+    pub ctx: Context,
     size: winit::dpi::PhysicalSize<u32>,
     renderer: Renderer,
     gui: Gui,
@@ -50,7 +50,6 @@ impl Graphics {
         });
 
         let renderer = Renderer::new(&world, &ctx, &world_color_texture.format());
-
 
         let world_color_texture_view = world_color_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -182,11 +181,7 @@ impl Graphics {
         self.ctx.resize(new_size);
     }
 
-    pub fn update(&mut self, world: &World) {
-        self.renderer.update(&world, &self.ctx);
-    }
-
-    pub fn render(&mut self, window: &Window) {
+    pub fn render(&mut self, camera: &PerspectiveCamera, window: &Window) {
 
         let mut encoder = self.ctx.create_encoder("command_encoder");
 

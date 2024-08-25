@@ -1,6 +1,8 @@
 use cgmath::{Angle, EuclideanSpace};
 use winit::event::MouseScrollDelta;
 
+use crate::graphics::{context::Context, renderer::TransformUniform};
+
 pub enum CameraType {
     Perspective = 0,
 }
@@ -18,6 +20,9 @@ pub struct PerspectiveCamera {
     radius: f32,
     yaw: cgmath::Rad<f32>,
     pitch: cgmath::Rad<f32>,
+    transform_buffer: wgpu::Buffer,
+    pub transform_bind_group_layout: wgpu::BindGroupLayout,
+    pub transform_bind_group: wgpu::BindGroup,
 }
 
 impl PerspectiveCamera {
@@ -80,9 +85,18 @@ impl PerspectiveCamera {
 
         self.update_position();
     }
+
+    pub fn update_uniforms(&mut self, ctx: &Context) {
+        let transform_uniform = TransformUniform {
+            transform: self.view_projection_matrix().into()
+        };
+
+        ctx.device.queue.write_buffer(&self.transform_buffer, 0, bytemuck::cast_slice(&transform_uniform.transform));
+    }
 }
 
-pub struct CameraBuilder {
+pub struct CameraBuilder<'a> {
+    ctx: &'a Context,
     camera_type: Option<CameraType>,
     position: Option<cgmath::Point3<f32>>,
     target: Option<cgmath::Point3<f32>>,
@@ -97,9 +111,10 @@ pub struct CameraBuilder {
 }
 
 
-impl CameraBuilder {
-    pub fn new() -> Self {
+impl<'a> CameraBuilder<'a> {
+    pub fn new(ctx: &Context) -> Self {
         Self {
+            ctx,
             camera_type: Some(CameraType::Perspective),
             position: Some((0.0, 0.0, 5.0).into()),
             target: Some((0.0, 0.0, 0.0).into()),
@@ -155,6 +170,41 @@ impl CameraBuilder {
                 let view_matrix = cgmath::Matrix4::look_at_rh(self.position.unwrap(), self.target.unwrap(), self.up.unwrap());
         
                 let projection_matrix = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.near, self.far);
+
+                let device = self.ctx.device;
+
+                let transform_uniform = TransformUniform { 
+                    transform: (projection_matrix * view_matrix).into(), 
+                };
+                
+                let transform_buffer = self.ctx.create_buffer(bytemuck::cast_slice(&[transform_uniform]), wgpu::BufferUsages::UNIFORM  | wgpu::BufferUsages::COPY_DST);
+        
+                let transform_bind_group_layout = device.logical_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer { 
+                                ty: wgpu::BufferBindingType::Uniform, 
+                                has_dynamic_offset: false, 
+                                min_binding_size: None
+                            },
+                            count: None
+                        }
+                    ],
+                    label: Some("transform_bind_group_layout")
+                });
+        
+                let transform_bind_group = device.logical_device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &transform_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: transform_buffer.as_entire_binding()
+                        }
+                    ],
+                    label: Some("transform_bind_group")
+                });
         
                 PerspectiveCamera {
                     position: self.position.unwrap(),
@@ -168,7 +218,10 @@ impl CameraBuilder {
                     projection_matrix,
                     radius: self.radius,
                     yaw: self.yaw,
-                    pitch: self.pitch
+                    pitch: self.pitch,
+                    transform_buffer,
+                    transform_bind_group_layout,
+                    transform_bind_group
                 }
             }
         }
