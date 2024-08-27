@@ -1,29 +1,19 @@
 use std::io::{BufReader, Cursor};
 
-use crate::graphics::{context::Context, renderer::TransformUniform, vertex_input::Vertex};
+use crate::graphics::vertex_input::Vertex;
 
-use super::world::Transform;
+use super::world::{Mesh, Transform};
 
 use cgmath::{EuclideanSpace, SquareMatrix};
 use gltf::Gltf;
-use wgpu::ShaderModule;
 
+use std::rc::Rc;
 
-
-pub struct Mesh {
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_elements: u32,
-}
 
 
 pub struct Model {
     transform: Transform,
     meshes: Vec<Mesh>,
-    transform_buffer: wgpu::Buffer,
-    pub transform_bind_group_layout: wgpu::BindGroupLayout,
-    pub transform_bind_group: wgpu::BindGroup,
-    pub pipeline: wgpu::RenderPipeline,
 }
 
 impl Model {
@@ -40,16 +30,14 @@ impl Model {
     }
 }
 
-pub struct ModelBuilder<'a> {
-    self.ctx: &'a Context,    
+pub struct ModelBuilder<'a> {  
     file_path: &'a str,
     transform: Option<Transform>,
 }
 
 impl<'a> ModelBuilder<'a> {
-    pub fn new(ctx: &Context, file_path: &str) -> Self {
+    pub fn new(file_path: &str) -> Self {
         Self {
-            ctx,
             file_path,
             transform: None
         }
@@ -155,111 +143,17 @@ impl<'a> ModelBuilder<'a> {
                     }
                 }
 
-                let vertex_buffer = self.ctx.create_buffer(bytemuck::cast_slice(&vertices), wgpu::BufferUsages::VERTEX);
+                let vertices = Rc::new(vertices);
 
-                let index_buffer = self.ctx.create_buffer(bytemuck::cast_slice(&indices), wgpu::BufferUsages::INDEX);
+                let indices = Rc::new(indices);
         
                 meshes.push(Mesh {
-                    vertex_buffer,
-                    index_buffer,
+                    vertices,
+                    indices,
                     num_elements: indices.len() as u32
                 });
             }
         }
-
-        let model = cgmath::Matrix4::<f32>::identity();
-
-        let translation = cgmath::Matrix4::from_translation(self.transform.unwrap().position.to_vec());
-        let translated_model = model * translation;
-
-        let scale = cgmath::Matrix4::from_nonuniform_scale(self.transform.unwrap().scale.x, self.transform.unwrap().scale.y, self.transform.unwrap().scale.z);
-        let scaled_model = translated_model * scale;
-
-        let cube_uniform = TransformUniform { 
-            transform: scaled_model.into()
-        }; 
-
-        let cube_transform_buffer = self.ctx.create_buffer(bytemuck::cast_slice(&[cube_uniform]), wgpu::BufferUsages::UNIFORM  | wgpu::BufferUsages::COPY_DST);
-
-        let cube_transform_bind_group_layout = self.ctx.device.logical_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer { 
-                        ty: wgpu::BufferBindingType::Uniform, 
-                        has_dynamic_offset: false, 
-                        min_binding_size: None
-                    },
-                    count: None
-                }
-            ],
-            label: Some("cube_bind_group_layout")
-        });
-
-        let cube_transform_bind_group = self.ctx.device.logical_device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &cube_transform_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: cube_transform_buffer.as_entire_binding()
-                }
-            ],
-            label: Some("cube_bind_group")
-        });
-        
-
-        let cube_shader = ShaderModule::new(&self.ctx.device.logical_device, "./src/assets/shaders/player.wgsl");
-
-        let cube_pipeline_layout = self.ctx.device.logical_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("cube_pipeline_layout"),
-            bind_group_layouts: &[
-                &camera.transform_bind_group_layout,
-                &cube_transform_bind_group_layout,
-            ],
-            push_constant_ranges: &[]
-        }); 
-
-        let cube_pipeline = device.logical_device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("cube_pipeline"),
-            layout: Some(&cube_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &cube_shader.context_handle,
-                entry_point: "vs_main",
-                buffers: &[Vertex::buffer_layout()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &cube_shader.context_handle,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba32Float,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float, // Example format
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less, // Typical depth function
-                stencil: wgpu::StencilState::default(), // Default stencil settings
-                bias: wgpu::DepthBiasState::default(), // Default depth bias
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false
-            },
-            multiview: None,
-        });
 
         Model {
             transform: self.transform.unwrap_or(Transform::default()),

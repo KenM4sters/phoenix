@@ -8,11 +8,6 @@ This currently in early stages of development and is frequently being worked on.
 
 ```rust
 
-let model = ModelBuilder::new()
-    .uri("")
-    .shader("")
-    .position((0, 0, 0).into())
-    .scale((10, 10, 10).into());
 
 
 ```

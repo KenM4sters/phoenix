@@ -1,8 +1,8 @@
-use cgmath::{EuclideanSpace, SquareMatrix};
+use std::rc::Rc;
+
 use winit::event::*;
-use super::camera::*;
 
-
+use crate::graphics::vertex_input::Vertex;
 
 #[derive(Debug)]
 pub struct Transform {
@@ -20,6 +20,13 @@ impl Default for Transform {
         }
     }
 }
+
+pub struct Mesh {
+    vertices: Rc<Vec<Vertex>>,
+    indices: Rc<Vec<u32>>,
+    num_elements: u32,
+}
+
 
 
 

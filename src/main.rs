@@ -8,8 +8,6 @@ mod program;
 mod graphics;
 mod world;
 
-
-
 fn main() {
    let world_loop = EventLoop::new().expect("Failed to start event loop");
     

@@ -4,7 +4,7 @@ use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::world::{camera::PerspectiveCamera, world::World};
 
-use super::{context::Context, gui::{example_gui, Gui}, renderer::Renderer, shader::ShaderModule, vertex_input::{Vertex, SQUARE_INDICES, SQUARE_VERTICES}};
+use super::{context::Context, gui::{example_gui, Gui}, renderer::Renderer, vertex_input::{Vertex, SQUARE_INDICES, SQUARE_VERTICES}};
 
 
 pub struct Graphics {
@@ -70,10 +70,9 @@ impl Graphics {
     
         let world_depth_texture_view = world_depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
+        let square_vertex_buffer = ctx.create_buffer("square_vertex_buffer", bytemuck::cast_slice(&SQUARE_VERTICES), wgpu::BufferUsages::VERTEX);
 
-        let square_vertex_buffer = ctx.create_buffer(bytemuck::cast_slice(&SQUARE_VERTICES), wgpu::BufferUsages::VERTEX);
-
-        let square_index_buffer = ctx.create_buffer(bytemuck::cast_slice(&SQUARE_INDICES), wgpu::BufferUsages::INDEX);
+        let square_index_buffer = ctx.create_buffer("square_index_buffer", bytemuck::cast_slice(&SQUARE_INDICES), wgpu::BufferUsages::INDEX);
 
 
         let world_texture_sampler = device.logical_device.create_sampler(&wgpu::SamplerDescriptor::default());
@@ -101,7 +100,7 @@ impl Graphics {
         });
 
         let world_texture_bind_group = device.logical_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &world_texture_bind_group_layout,
+                layout: &world_texture_bind_group_layout, 
                 entries: &[
                     wgpu::BindGroupEntry {
                         binding: 0,

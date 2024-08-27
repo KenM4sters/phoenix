@@ -20,9 +20,6 @@ pub struct PerspectiveCamera {
     radius: f32,
     yaw: cgmath::Rad<f32>,
     pitch: cgmath::Rad<f32>,
-    transform_buffer: wgpu::Buffer,
-    pub transform_bind_group_layout: wgpu::BindGroupLayout,
-    pub transform_bind_group: wgpu::BindGroup,
 }
 
 impl PerspectiveCamera {
@@ -91,7 +88,9 @@ impl PerspectiveCamera {
             transform: self.view_projection_matrix().into()
         };
 
-        ctx.device.queue.write_buffer(&self.transform_buffer, 0, bytemuck::cast_slice(&transform_uniform.transform));
+        let buffer = ctx.get_buffer("camera_transform_uniform_buffer");
+
+        ctx.device.queue.write_buffer(&buffer, 0, bytemuck::cast_slice(&transform_uniform.transform));
     }
 }
 
@@ -177,34 +176,7 @@ impl<'a> CameraBuilder<'a> {
                     transform: (projection_matrix * view_matrix).into(), 
                 };
                 
-                let transform_buffer = self.ctx.create_buffer(bytemuck::cast_slice(&[transform_uniform]), wgpu::BufferUsages::UNIFORM  | wgpu::BufferUsages::COPY_DST);
-        
-                let transform_bind_group_layout = device.logical_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::VERTEX,
-                            ty: wgpu::BindingType::Buffer { 
-                                ty: wgpu::BufferBindingType::Uniform, 
-                                has_dynamic_offset: false, 
-                                min_binding_size: None
-                            },
-                            count: None
-                        }
-                    ],
-                    label: Some("transform_bind_group_layout")
-                });
-        
-                let transform_bind_group = device.logical_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: &transform_bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: transform_buffer.as_entire_binding()
-                        }
-                    ],
-                    label: Some("transform_bind_group")
-                });
+                self.ctx.create_buffer("camera_transform_uniform_buffer", bytemuck::cast_slice(&transform_uniform.transform), wgpu::BufferUsages::VERTEX);
         
                 PerspectiveCamera {
                     position: self.position.unwrap(),
@@ -219,9 +191,6 @@ impl<'a> CameraBuilder<'a> {
                     radius: self.radius,
                     yaw: self.yaw,
                     pitch: self.pitch,
-                    transform_buffer,
-                    transform_bind_group_layout,
-                    transform_bind_group
                 }
             }
         }
