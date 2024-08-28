@@ -90,7 +90,7 @@ impl PerspectiveCamera {
 
         let buffer = ctx.get_buffer("camera_transform_uniform_buffer");
 
-        ctx.device.queue.write_buffer(&buffer, 0, bytemuck::cast_slice(&transform_uniform.transform));
+        ctx.device.queue.write_buffer(&buffer.gpu_buffer, 0, bytemuck::cast_slice(&transform_uniform.transform));
     }
 }
 

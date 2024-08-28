@@ -1,5 +1,5 @@
-use std::{fs, rc::Rc, sync::Arc};
-use wgpu::{util::DeviceExt};
+use std::{fs, rc::Rc};
+use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct Device {
@@ -88,7 +88,7 @@ impl Texture {
 }
 
 pub struct TextureView {
-    gpu_texture_view: wgpu::TextureView
+    pub gpu_texture_view: wgpu::TextureView
 }
 
 impl TextureView {
@@ -105,7 +105,7 @@ impl TextureView {
 }
 
 pub struct Sampler {
-    gpu_sampler: wgpu::Sampler
+    pub gpu_sampler: wgpu::Sampler
 }
 
 impl Sampler {
@@ -138,13 +138,13 @@ impl Sampler {
 
 
 pub struct BindGroupLayoutEntry {
-    binding: u32, 
-    visibility: wgpu::ShaderStages, 
-    ty: wgpu::BufferBindingType,
+    pub binding: u32, 
+    pub visibility: wgpu::ShaderStages, 
+    pub ty: wgpu::BindingType,
 }
 
 pub struct BindGroupLayout {
-    gpu_bind_group_layout: wgpu::BindGroupLayout,
+    pub gpu_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl BindGroupLayout {
@@ -159,11 +159,7 @@ impl BindGroupLayout {
             gpu_entries.push(wgpu::BindGroupLayoutEntry {
                 binding: entry.binding,
                 visibility: entry.visibility,
-                ty: wgpu::BindingType::Buffer { 
-                    ty: entry.ty, 
-                    has_dynamic_offset: false, 
-                    min_binding_size: None
-                },
+                ty: entry.ty,
                 count: None
             })
         });
@@ -180,16 +176,21 @@ impl BindGroupLayout {
 }
 
 pub struct BindGroupEntry<'a> {
-    binding: u32,
-    resource: wgpu::BindingResource<'a>,
+    pub binding: u32,
+    pub resource: wgpu::BindingResource<'a>,
 }
 
 pub struct BindGroup {
-    gpu_bind_group: wgpu::BindGroup,
+    pub gpu_bind_group: wgpu::BindGroup,
 }
 
 impl BindGroup {
-    pub fn new(device: &wgpu::Device, label: &str, layout: &wgpu::BindGroupLayout, entries: Vec<BindGroupEntry>) -> Self {
+    pub fn new(
+        device: &wgpu::Device, 
+        label: &str, 
+        layout: &wgpu::BindGroupLayout, 
+        entries: Vec<BindGroupEntry>
+    ) -> Self {
         let mut gpu_entries = vec![];
 
         entries.iter().for_each(|entry| {
@@ -232,7 +233,7 @@ impl Shader {
 }
 
 pub struct RenderPipeline {
-    gpu_render_pipeline: wgpu::RenderPipeline,
+    pub gpu_render_pipeline: wgpu::RenderPipeline,
 }
 
 impl RenderPipeline {
@@ -399,9 +400,12 @@ impl Context {
         label: &str, 
         data: &[u8], 
         usage: wgpu::BufferUsages
-    ) {
+    ) -> Rc<Buffer> {
         let buffer = Rc::new(Buffer::new(&self.device.logical_device, label, data, usage));
+        
         self.buffers.insert(label.to_string(), buffer);
+        
+        buffer
     }
 
     ///
@@ -414,9 +418,12 @@ impl Context {
         dimension: wgpu::TextureDimension, 
         format: wgpu::TextureFormat, 
         usage: wgpu::TextureUsages
-    ) {
+    ) -> Rc<Texture> {
         let texture = Rc::new(Texture::new(&self.device.logical_device, label, size, mip_level_count, sample_count, dimension, format, usage));
+        
         self.textures.insert(label.to_string(), texture);
+        
+        texture
     }
 
     ///
@@ -424,9 +431,12 @@ impl Context {
         &self, 
         label: &str, 
         code_path: &str
-    ) {
+    ) -> Rc<Shader> {
         let shader = Rc::new(Shader::new(&self.device.logical_device, label, code_path));
+        
         self.shaders.insert(label.to_string(), shader);
+        
+        shader
     }
 
     ///
@@ -439,9 +449,12 @@ impl Context {
         min_filter: wgpu::FilterMode, 
         mag_filter: wgpu::FilterMode, 
         mipmap_filter: wgpu::FilterMode
-    ) {
+    ) -> Rc<Sampler> {
         let sampler = Rc::new(Sampler::new(&self.device.logical_device, label, address_mode_u, address_mode_v, address_mode_w, min_filter, mag_filter, mipmap_filter));
+        
         self.samplers.insert(label.to_string(), sampler);
+        
+        sampler
     }
 
     ///
@@ -449,72 +462,110 @@ impl Context {
         &self,
         texture: &wgpu::Texture,
         label: &str
-    ) {
+    ) -> Rc<TextureView> {
         let texture_view = Rc::new(TextureView::new(&texture, label));
+        
         self.texture_views.insert(label.to_string(), texture_view);
+        
+        texture_view
     }
 
-    pub fn get_buffer(&self, label: &str) -> &wgpu::Buffer {
+    pub fn create_bind_group_layout(
+        &self,
+        label: &str, 
+        entries: Vec<BindGroupLayoutEntry>
+    ) -> Rc<BindGroupLayout> {
+        let bind_group_layout = Rc::new(BindGroupLayout::new(&self.device.logical_device, label, entries));
+        
+        self.bind_group_layouts.insert(label.to_string(), bind_group_layout);
+        
+        bind_group_layout
+    }
+
+    pub fn create_bind_group(
+        &self,
+        label: &str, 
+        layout: &wgpu::BindGroupLayout, 
+        entries: Vec<BindGroupEntry>
+    ) -> Rc<BindGroup> {
+        let bind_group = Rc::new(BindGroup::new(&self.device.logical_device, label, layout, entries));
+        
+        self.bind_groups.insert(label.to_string(), bind_group);
+        
+        bind_group
+    }
+
+    pub fn create_render_pipeline(
+        &self,
+        label: &str,
+        layout: wgpu::PipelineLayout, 
+        shader: &wgpu::ShaderModule,
+        buffers: &[wgpu::VertexBufferLayout],
+        color_target_state: Option<wgpu::ColorTargetState>,
+        depth_target_state: Option<wgpu::DepthStencilState>,
+        topology: wgpu::PrimitiveTopology,
+        polygon_mode: wgpu::PolygonMode,
+    ) -> Rc<RenderPipeline> {
+        let render_pipeline = Rc::new(RenderPipeline::new(&self.device.logical_device, label, layout, shader, buffers, color_target_state, depth_target_state, topology, polygon_mode));
+        
+        self.render_pipelines.insert(label.to_string(), render_pipeline);
+        
+        render_pipeline
+    }
+
+    pub fn get_buffer(&self, label: &str) -> &Buffer {
         &self.buffers
             .get(label)
             .expect(&format!("Failed to get {} from ctx.buffers!", label.to_string()))
             .as_ref()
-            .gpu_buffer
     }
 
-    pub fn get_shader(&self, label: &str) -> &wgpu::ShaderModule {
+    pub fn get_shader(&self, label: &str) -> &Shader {
         &self.shaders
             .get(label)
             .expect(&format!("Failed to get {} from ctx.shaders!", label.to_string()))
             .as_ref()
-            .shader
     }
 
-    pub fn get_texture(&self, label: &str) -> &wgpu::Texture {
+    pub fn get_texture(&self, label: &str) -> &Texture {
         &self.textures
             .get(label)
             .expect(&format!("Failed to get {} from ctx.textures!", label.to_string()))
             .as_ref()
-            .gpu_texture
     }
 
-    pub fn get_texture_view(&self, label: &str) -> &wgpu::TextureView {
+    pub fn get_texture_view(&self, label: &str) -> &TextureView {
         &self.texture_views
             .get(label)
             .expect(&format!("Failed to get {} from ctx.texture_views!", label.to_string()))
             .as_ref()
-            .gpu_texture_view
     }
 
-    pub fn get_sampler(&self, label: &str) -> &wgpu::Sampler {
+    pub fn get_sampler(&self, label: &str) -> &Sampler {
         &self.samplers
             .get(label)
             .expect(&format!("Failed to get {} from ctx.samplers!", label.to_string()))
             .as_ref()
-            .gpu_sampler
     }
 
-    pub fn get_bind_group_layout(&self, label: &str) -> &wgpu::BindGroupLayout {
+    pub fn get_bind_group_layout(&self, label: &str) -> &BindGroupLayout {
         &self.bind_group_layouts
             .get(label)
             .expect(&format!("Failed to get {} from ctx.bind_group_layouts!", label.to_string()))
             .as_ref()
-            .gpu_bind_group_layout
     }
 
-    pub fn get_bind_group(&self, label: &str) -> &wgpu::BindGroup {
+    pub fn get_bind_group(&self, label: &str) -> &BindGroup {
         &self.bind_groups
             .get(label)
             .expect(&format!("Failed to get {} from ctx.bind_groups!", label.to_string()))
             .as_ref()
-            .gpu_bind_group
     }
 
-    pub fn get_render_pipeline(&self, label: &str) -> &wgpu::RenderPipeline {
+    pub fn get_render_pipeline(&self, label: &str) -> &RenderPipeline {
         &self.render_pipelines
             .get(label)
             .expect(&format!("Failed to get {} from ctx.render_pipelines!", label.to_string()))
             .as_ref()
-            .gpu_render_pipeline
     }
 }

@@ -1,10 +1,11 @@
+use egui::epaint::text::layout;
 use egui_wgpu::renderer::ScreenDescriptor;
 use winit::{dpi::PhysicalSize, window::Window};
 
 
 use crate::world::{camera::PerspectiveCamera, world::World};
 
-use super::{context::Context, gui::{example_gui, Gui}, renderer::Renderer, vertex_input::{Vertex, SQUARE_INDICES, SQUARE_VERTICES}};
+use super::{context::{BindGroupEntry, BindGroupLayoutEntry, Context}, gui::{example_gui, Gui}, renderer::Renderer, vertex_input::{Vertex, SQUARE_INDICES, SQUARE_VERTICES}};
 
 
 pub struct Graphics {
@@ -12,14 +13,6 @@ pub struct Graphics {
     size: winit::dpi::PhysicalSize<u32>,
     renderer: Renderer,
     gui: Gui,
-    world_color_texture: wgpu::Texture,
-    world_depth_texture: wgpu::Texture,
-    world_color_texture_view: wgpu::TextureView,
-    world_depth_texture_view: wgpu::TextureView,
-    square_index_buffer: wgpu::Buffer,
-    square_vertex_buffer: wgpu::Buffer,
-    world_texture_bind_group: wgpu::BindGroup,
-    screen_quad_pipeline: wgpu::RenderPipeline,
 }
 
 impl Graphics {
@@ -29,150 +22,122 @@ impl Graphics {
 
         let ctx = Context::new(size.clone(), &window).await; 
 
+        let renderer = Renderer::new(&world, &ctx);
+
         let device = &ctx.device;
         let surface_format = &ctx.surface_config.format;
 
         let gui = Gui::new(&device.logical_device, surface_format.clone(), None, &window);
 
-        let world_color_texture = device.logical_device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Depth Texture"),
-            size: wgpu::Extent3d {
-                width: 1600,
-                height: 1200,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba32Float, // Match this to the format in your pipeline
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
+        let world_color_texture = ctx.create_texture(
+            "world_color_texture", 
+            wgpu::Extent3d { width: 1600, height: 1200, depth_or_array_layers: 1,}, 
+            1, 
+            1, 
+            wgpu::TextureDimension::D2, 
+            wgpu::TextureFormat::Rgba32Float, 
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING
+        );
 
-        let renderer = Renderer::new(&world, &ctx, &world_color_texture.format());
+        let world_color_texture_view = ctx.create_texture_view(&world_color_texture.gpu_texture, "world_color_texture_view");
 
-        let world_color_texture_view = world_color_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let world_depth_texture = ctx.create_texture(
+            "world_depth_texture", 
+            wgpu::Extent3d { width: 1600, height: 1200, depth_or_array_layers: 1,}, 
+            1, 
+            1, 
+            wgpu::TextureDimension::D2, 
+            wgpu::TextureFormat::Depth32Float, 
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING
+        );
+            
+        let world_depth_texture_view = ctx.create_texture_view(&world_depth_texture.gpu_texture, "world_depth_texture_view");
 
-        let world_depth_texture = device.logical_device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Depth Texture"),
-            size: wgpu::Extent3d {
-                width: 1600,
-                height: 1200,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float, // Match this to the format in your pipeline
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
-    
-        let world_depth_texture_view = world_depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        ctx.create_buffer("square_vertex_buffer", bytemuck::cast_slice(&SQUARE_VERTICES), wgpu::BufferUsages::VERTEX);
 
-        let square_vertex_buffer = ctx.create_buffer("square_vertex_buffer", bytemuck::cast_slice(&SQUARE_VERTICES), wgpu::BufferUsages::VERTEX);
-
-        let square_index_buffer = ctx.create_buffer("square_index_buffer", bytemuck::cast_slice(&SQUARE_INDICES), wgpu::BufferUsages::INDEX);
+        ctx.create_buffer("square_index_buffer", bytemuck::cast_slice(&SQUARE_INDICES), wgpu::BufferUsages::INDEX);
 
 
-        let world_texture_sampler = device.logical_device.create_sampler(&wgpu::SamplerDescriptor::default());
+        let default_sampler = ctx.create_sampler(
+            "default_sampler",
+            wgpu::AddressMode::Repeat,
+            wgpu::AddressMode::Repeat,
+            wgpu::AddressMode::Repeat,
+            wgpu::FilterMode::Linear,
+            wgpu::FilterMode::Linear,
+            wgpu::FilterMode::Nearest
+        );
 
-        let world_texture_bind_group_layout = device.logical_device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            entries: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
+        let world_texture_bind_group_layout = ctx.create_bind_group_layout(
+            "world_texture_bind_group_layout", 
+            vec![
+                BindGroupLayoutEntry {
+                    binding: 0, 
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture { 
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false }, 
+                        view_dimension: wgpu::TextureViewDimension::D2, 
+                        multisampled: false
+                    }
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture { 
                         sample_type: wgpu::TextureSampleType::Float { filterable: false }, 
                         view_dimension: wgpu::TextureViewDimension::D2, 
                         multisampled: false
                     },
-                    count: None
+                }
+            ]
+        );
+
+        let world_texture_bind_group = ctx.create_bind_group(
+            "world_texture_bind_group",
+            &world_texture_bind_group_layout.gpu_bind_group_layout, 
+            vec![
+                BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&world_color_texture_view.gpu_texture_view)
                 },
-                wgpu::BindGroupLayoutEntry {
+                BindGroupEntry {
                     binding: 1,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::NonFiltering),
-                    count: None
+                    resource: wgpu::BindingResource::Sampler(&default_sampler.gpu_sampler)
                 },
-            ],
-            label: Some("world_texture_bind_group_layout")
-        });
+            ]
+        );
 
-        let world_texture_bind_group = device.logical_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: &world_texture_bind_group_layout, 
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: wgpu::BindingResource::TextureView(&world_color_texture_view),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: wgpu::BindingResource::Sampler(&world_texture_sampler),
-                    }
-                ],
-                label: Some("world_texture_bind_group"),
-        });
 
-        let screen_quad_shader = ShaderModule::new(&device.logical_device, "./src/assets/shaders/screen_quad.wgsl");
+        let screen_quad_shader = ctx.create_shader("screen_quad_shader", "./src/assets/shaders/screen_quad.wgsl");
 
         let screen_quad_pipeline_layout = device.logical_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("screen_quad_pipeline_layout"),
             bind_group_layouts: &[
-                &world_texture_bind_group_layout,
+                &world_texture_bind_group_layout.gpu_bind_group_layout,
             ],
             push_constant_ranges: &[]
         });
 
-        let screen_quad_pipeline = device.logical_device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("screen_quad_pipeline"),
-            layout: Some(&screen_quad_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &screen_quad_shader.context_handle,
-                entry_point: "vs_main",
-                buffers: &[Vertex::buffer_layout()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &screen_quad_shader.context_handle,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: *surface_format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL
-                })],
+        let screen_quad_pipeline = ctx.create_render_pipeline(
+            "screen_quad_pipeline",
+            screen_quad_pipeline_layout,
+            &screen_quad_shader.shader,
+            &[Vertex::buffer_layout()],
+            Some(wgpu::ColorTargetState {
+                format: *surface_format,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL
             }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false
-            },
-            multiview: None,
-        });
-
+            None,
+            wgpu::PrimitiveTopology::TriangleList,
+            wgpu::PolygonMode::Fill
+        );
 
         Self {
             ctx,
             size,
             renderer,
             gui,
-            world_color_texture,
-            world_depth_texture,
-            world_color_texture_view,
-            world_depth_texture_view,
-            square_vertex_buffer,
-            square_index_buffer,
-            world_texture_bind_group,
-            screen_quad_pipeline,
         }
     }
 
@@ -184,7 +149,15 @@ impl Graphics {
 
         let mut encoder = self.ctx.create_encoder("command_encoder");
 
-        self.renderer.render(&mut encoder, &self.world_color_texture_view, &self.world_depth_texture_view);
+
+        let world_color_texture_view = self.ctx.get_texture_view("world_color_texture_view");
+        let world_depth_texture_view = self.ctx.get_texture_view("world_depth_texture_view");
+        let screen_quad_pipeline = self.ctx.get_render_pipeline("screen_quad_pipeline");
+        let screen_quad_vertex_buffer = self.ctx.get_buffer("screen_quad_vertex_buffer");
+        let screen_quad_index_buffer = self.ctx.get_buffer("screen_quad_index_buffer");
+        let world_texture_bind_group = self.ctx.get_bind_group("world_texture_bind_group");
+
+        self.renderer.render(&mut encoder, &world_color_texture_view.gpu_texture_view, &world_depth_texture_view.gpu_texture_view);
 
         let surface_texture = self.ctx.surface
             .get_current_texture()
@@ -213,13 +186,13 @@ impl Graphics {
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&self.screen_quad_pipeline);
+            render_pass.set_pipeline(&screen_quad_pipeline.gpu_render_pipeline);
 
-            render_pass.set_bind_group(0, &self.world_texture_bind_group, &[]);
+            render_pass.set_bind_group(0, &world_texture_bind_group.gpu_bind_group, &[]);
 
-            render_pass.set_vertex_buffer(0, self.square_vertex_buffer.slice(..));
+            render_pass.set_vertex_buffer(0, screen_quad_vertex_buffer.gpu_buffer.slice(..));
 
-            render_pass.set_index_buffer(self.square_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.set_index_buffer(screen_quad_index_buffer.gpu_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
             render_pass.draw_indexed(0..SQUARE_INDICES.len() as u32, 0, 0..1);
         }

@@ -2,7 +2,9 @@ use std::rc::Rc;
 
 use winit::event::*;
 
-use crate::graphics::vertex_input::Vertex;
+use crate::graphics::{context::Buffer, vertex_input::Vertex};
+
+use super::model::Model;
 
 #[derive(Debug)]
 pub struct Transform {
@@ -22,9 +24,9 @@ impl Default for Transform {
 }
 
 pub struct Mesh {
-    vertices: Rc<Vec<Vertex>>,
-    indices: Rc<Vec<u32>>,
-    num_elements: u32,
+    pub vertex_buffer: Rc<Buffer>,
+    pub index_buffer: Rc<Buffer>,
+    pub num_elements: u32,
 }
 
 
@@ -32,11 +34,15 @@ pub struct Mesh {
 
 // World
 pub struct World {
+    models: Vec<Model>
 }
 
 impl World {
     pub fn new() -> Self {
+        let models = vec![];
+
         Self {
+            models
         }
     }
 

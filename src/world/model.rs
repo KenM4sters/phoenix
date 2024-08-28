@@ -1,6 +1,6 @@
 use std::io::{BufReader, Cursor};
 
-use crate::graphics::vertex_input::Vertex;
+use crate::graphics::{context::{BindGroupEntry, BindGroupLayoutEntry, Context}, renderer::TransformUniform, vertex_input::Vertex};
 
 use super::world::{Mesh, Transform};
 
@@ -31,13 +31,15 @@ impl Model {
 }
 
 pub struct ModelBuilder<'a> {  
+    ctx: &'a Context,
     file_path: &'a str,
     transform: Option<Transform>,
 }
 
 impl<'a> ModelBuilder<'a> {
-    pub fn new(file_path: &str) -> Self {
+    pub fn new(ctx: &Context, file_path: &str) -> Self {
         Self {
+            ctx,
             file_path,
             transform: None
         }
@@ -143,17 +145,85 @@ impl<'a> ModelBuilder<'a> {
                     }
                 }
 
-                let vertices = Rc::new(vertices);
+                let vertex_buffer = self.ctx.create_buffer("mesh_vertex_buffer", bytemuck::cast_slice(&vertices), wgpu::BufferUsages::VERTEX);
 
-                let indices = Rc::new(indices);
+                let index_buffer = self.ctx.create_buffer("mesh_vertex_buffer", bytemuck::cast_slice(&indices), wgpu::BufferUsages::INDEX);
         
                 meshes.push(Mesh {
-                    vertices,
-                    indices,
+                    vertex_buffer,
+                    index_buffer,
                     num_elements: indices.len() as u32
                 });
             }
         }
+
+        let model = cgmath::Matrix4::<f32>::identity();
+
+        let translation = cgmath::Matrix4::from_translation(self.transform.unwrap().position.to_vec());
+        let translated_model = model * translation;
+
+        let scale = cgmath::Matrix4::from_nonuniform_scale(self.transform.unwrap().scale.x, self.transform.unwrap().scale.y, self.transform.unwrap().scale.z);
+        let scaled_model = translated_model * scale;
+
+        let cube_uniform = TransformUniform { 
+            transform: scaled_model.into()
+        }; 
+
+        let cube_transform_buffer = self.ctx.create_buffer("model_transform_buffer", bytemuck::cast_slice(&[cube_uniform]), wgpu::BufferUsages::UNIFORM  | wgpu::BufferUsages::COPY_DST);
+
+        let cube_transform_bind_group_layout = self.ctx.create_bind_group_layout(
+            "cube_transform_bind_group_layout", 
+            vec![
+                BindGroupLayoutEntry {
+                    binding: 0, 
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer { 
+                        ty: wgpu::BufferBindingType::Uniform, 
+                        has_dynamic_offset: false, 
+                        min_binding_size: None
+                    }
+                },
+            ]
+        );
+
+        let cube_transform_bind_group = self.ctx.create_bind_group(
+            "cube_transform_bind_group",
+            &cube_transform_bind_group_layout.gpu_bind_group_layout, 
+            vec![
+                BindGroupEntry {
+                    binding: 0,
+                    resource: cube_transform_buffer.gpu_buffer.as_entire_binding()
+                },
+            ]
+        );        
+
+        let cube_shader = self.ctx.create_shader("cube_shader", "./src/assets/shaders/player.wgsl");
+
+        let camera_layout = self.ctx.get_bind_group_layout("camera_bind_group_layout");
+
+        let cube_pipeline_layout = self.ctx.device.logical_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("cube_pipeline_layout"),
+            bind_group_layouts: &[
+                &camera_layout.gpu_bind_group_layout,
+                &cube_transform_bind_group_layout.gpu_bind_group_layout,
+            ],
+            push_constant_ranges: &[]
+        }); 
+
+        let cube_pipeline = self.ctx.create_render_pipeline(
+            "cube_pipeline",
+            cube_pipeline_layout,
+            &cube_shader.shader,
+            &[Vertex::buffer_layout()],
+            Some(wgpu::ColorTargetState {
+                format: wgpu::TextureFormat::Rgba32Float,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL
+            }),
+            None,
+            wgpu::PrimitiveTopology::TriangleList,
+            wgpu::PolygonMode::Fill
+        );
 
         Model {
             transform: self.transform.unwrap_or(Transform::default()),
