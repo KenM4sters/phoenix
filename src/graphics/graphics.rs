@@ -16,18 +16,15 @@ pub struct Graphics {
 }
 
 impl Graphics {
-    pub async fn new(world: &World, window: &Window) -> Self 
+    pub async fn new(window: &Window) -> Self 
     {
         let size = window.inner_size();
 
-        let ctx = Context::new(size.clone(), &window).await; 
+        let mut ctx = Context::new(size.clone(), &window).await; 
 
-        let renderer = Renderer::new(&world, &ctx);
+        let renderer = Renderer::new(&ctx);
 
-        let device = &ctx.device;
-        let surface_format = &ctx.surface_config.format;
-
-        let gui = Gui::new(&device.logical_device, surface_format.clone(), None, &window);
+        let gui = Gui::new(&ctx.device.logical_device, ctx.surface_config.format.clone(), None, &window);
 
         let world_color_texture = ctx.create_texture(
             "world_color_texture", 
@@ -35,7 +32,7 @@ impl Graphics {
             1, 
             1, 
             wgpu::TextureDimension::D2, 
-            wgpu::TextureFormat::Rgba32Float, 
+            wgpu::TextureFormat::Rgba8UnormSrgb, 
             wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING
         );
 
@@ -60,12 +57,12 @@ impl Graphics {
 
         let default_sampler = ctx.create_sampler(
             "default_sampler",
-            wgpu::AddressMode::Repeat,
-            wgpu::AddressMode::Repeat,
-            wgpu::AddressMode::Repeat,
+            wgpu::AddressMode::ClampToEdge,
+            wgpu::AddressMode::ClampToEdge,
+            wgpu::AddressMode::ClampToEdge,
             wgpu::FilterMode::Linear,
-            wgpu::FilterMode::Linear,
-            wgpu::FilterMode::Nearest
+            wgpu::FilterMode::Nearest,
+            wgpu::FilterMode::Nearest,
         );
 
         let world_texture_bind_group_layout = ctx.create_bind_group_layout(
@@ -75,7 +72,7 @@ impl Graphics {
                     binding: 0, 
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture { 
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false }, 
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true }, 
                         view_dimension: wgpu::TextureViewDimension::D2, 
                         multisampled: false
                     }
@@ -83,11 +80,7 @@ impl Graphics {
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Texture { 
-                        sample_type: wgpu::TextureSampleType::Float { filterable: false }, 
-                        view_dimension: wgpu::TextureViewDimension::D2, 
-                        multisampled: false
-                    },
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering)
                 }
             ]
         );
@@ -110,7 +103,7 @@ impl Graphics {
 
         let screen_quad_shader = ctx.create_shader("screen_quad_shader", "./src/assets/shaders/screen_quad.wgsl");
 
-        let screen_quad_pipeline_layout = device.logical_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        let screen_quad_pipeline_layout = ctx.device.logical_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("screen_quad_pipeline_layout"),
             bind_group_layouts: &[
                 &world_texture_bind_group_layout.gpu_bind_group_layout,
@@ -118,13 +111,13 @@ impl Graphics {
             push_constant_ranges: &[]
         });
 
-        let screen_quad_pipeline = ctx.create_render_pipeline(
+        ctx.create_render_pipeline(
             "screen_quad_pipeline",
             screen_quad_pipeline_layout,
             &screen_quad_shader.shader,
             &[Vertex::buffer_layout()],
             Some(wgpu::ColorTargetState {
-                format: *surface_format,
+                format: ctx.surface_config.format,
                 blend: Some(wgpu::BlendState::REPLACE),
                 write_mask: wgpu::ColorWrites::ALL
             }),
@@ -145,7 +138,7 @@ impl Graphics {
         self.ctx.resize(new_size);
     }
 
-    pub fn render(&mut self, camera: &PerspectiveCamera, window: &Window) {
+    pub fn render(&mut self, world: &World, camera: &PerspectiveCamera, window: &Window) {
 
         let mut encoder = self.ctx.create_encoder("command_encoder");
 
@@ -153,11 +146,55 @@ impl Graphics {
         let world_color_texture_view = self.ctx.get_texture_view("world_color_texture_view");
         let world_depth_texture_view = self.ctx.get_texture_view("world_depth_texture_view");
         let screen_quad_pipeline = self.ctx.get_render_pipeline("screen_quad_pipeline");
-        let screen_quad_vertex_buffer = self.ctx.get_buffer("screen_quad_vertex_buffer");
-        let screen_quad_index_buffer = self.ctx.get_buffer("screen_quad_index_buffer");
+        let screen_quad_vertex_buffer = self.ctx.get_buffer("square_vertex_buffer");
+        let screen_quad_index_buffer = self.ctx.get_buffer("square_index_buffer");
         let world_texture_bind_group = self.ctx.get_bind_group("world_texture_bind_group");
 
-        self.renderer.render(&mut encoder, &world_color_texture_view.gpu_texture_view, &world_depth_texture_view.gpu_texture_view);
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("world_render_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &world_color_texture_view.gpu_texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        }),
+                        store: wgpu::StoreOp::Store,
+                    }
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &world_depth_texture_view.gpu_texture_view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None
+                }),
+                occlusion_query_set: None,
+                timestamp_writes: None,
+            });
+            
+            render_pass.set_bind_group(0, &camera.bind_group.gpu_bind_group, &[]);
+
+            world.models.iter().for_each(|model| {
+                model.meshes.iter().for_each(|mesh| {
+                    // First Order Bind Groups
+                    render_pass.set_pipeline(&model.pipeline.gpu_render_pipeline);
+            
+                    render_pass.set_bind_group(1, &model.bind_group.gpu_bind_group, &[]);
+            
+                    render_pass.set_vertex_buffer(0, mesh.vertex_buffer.gpu_buffer.slice(..));
+            
+                    render_pass.set_index_buffer(mesh.index_buffer.gpu_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            
+                    render_pass.draw_indexed(0..mesh.num_elements, 0, 0..1);
+                })
+            });
+        }
 
         let surface_texture = self.ctx.surface
             .get_current_texture()
@@ -213,8 +250,8 @@ impl Graphics {
 
         self.ctx.device.queue.submit(std::iter::once(encoder.finish()));
 
-        surface_texture.present();
-    }    
+        surface_texture.present();    
+    }
 }
 
 

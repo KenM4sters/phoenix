@@ -1,8 +1,12 @@
+#![allow(unused)]
+
 use pollster::block_on;
 use program::program::Program;
 use event_loop::EventLoop;
 use window::WindowBuilder;
 use winit::*;
+
+
 
 mod program;
 mod graphics;

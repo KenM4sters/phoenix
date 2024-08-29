@@ -1,7 +1,9 @@
+use std::rc::Rc;
+
 use cgmath::{Angle, EuclideanSpace};
 use winit::event::MouseScrollDelta;
 
-use crate::graphics::{context::Context, renderer::TransformUniform};
+use crate::graphics::{context::{BindGroup, BindGroupEntry, BindGroupLayoutEntry, Context}, renderer::TransformUniform};
 
 pub enum CameraType {
     Perspective = 0,
@@ -20,6 +22,7 @@ pub struct PerspectiveCamera {
     radius: f32,
     yaw: cgmath::Rad<f32>,
     pitch: cgmath::Rad<f32>,
+    pub bind_group: Rc<BindGroup>
 }
 
 impl PerspectiveCamera {
@@ -95,7 +98,7 @@ impl PerspectiveCamera {
 }
 
 pub struct CameraBuilder<'a> {
-    ctx: &'a Context,
+    ctx: &'a mut Context,
     camera_type: Option<CameraType>,
     position: Option<cgmath::Point3<f32>>,
     target: Option<cgmath::Point3<f32>>,
@@ -111,7 +114,7 @@ pub struct CameraBuilder<'a> {
 
 
 impl<'a> CameraBuilder<'a> {
-    pub fn new(ctx: &Context) -> Self {
+    pub fn new(ctx: &'a mut Context) -> Self {
         Self {
             ctx,
             camera_type: Some(CameraType::Perspective),
@@ -163,20 +166,46 @@ impl<'a> CameraBuilder<'a> {
         self
     }
 
-    pub fn build(&self) -> PerspectiveCamera {
+    pub fn build(&mut self) -> PerspectiveCamera {
         match self.camera_type {
             _ => {
                 let view_matrix = cgmath::Matrix4::look_at_rh(self.position.unwrap(), self.target.unwrap(), self.up.unwrap());
         
                 let projection_matrix = cgmath::perspective(cgmath::Deg(self.fovy), self.aspect, self.near, self.far);
 
-                let device = self.ctx.device;
+                let device = &self.ctx.device;
 
                 let transform_uniform = TransformUniform { 
                     transform: (projection_matrix * view_matrix).into(), 
                 };
                 
-                self.ctx.create_buffer("camera_transform_uniform_buffer", bytemuck::cast_slice(&transform_uniform.transform), wgpu::BufferUsages::VERTEX);
+                let transform_buffer = self.ctx.create_buffer("camera_transform_uniform_buffer", bytemuck::cast_slice(&transform_uniform.transform), wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST);
+
+                let bind_group_layout = self.ctx.create_bind_group_layout(
+                    "camera_bind_group_layout", 
+                    vec![
+                        BindGroupLayoutEntry {
+                            binding: 0, 
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer { 
+                                ty: wgpu::BufferBindingType::Uniform, 
+                                has_dynamic_offset: false, 
+                                min_binding_size: None
+                            }
+                        },
+                    ]
+                );
+        
+                let bind_group = self.ctx.create_bind_group(
+                    "camera_transform_bind_group",
+                    &bind_group_layout.gpu_bind_group_layout, 
+                    vec![
+                        BindGroupEntry {
+                            binding: 0,
+                            resource: transform_buffer.gpu_buffer.as_entire_binding()
+                        },
+                    ]
+                );   
         
                 PerspectiveCamera {
                     position: self.position.unwrap(),
@@ -191,6 +220,7 @@ impl<'a> CameraBuilder<'a> {
                     radius: self.radius,
                     yaw: self.yaw,
                     pitch: self.pitch,
+                    bind_group
                 }
             }
         }

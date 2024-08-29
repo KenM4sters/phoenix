@@ -196,7 +196,7 @@ impl BindGroup {
         entries.iter().for_each(|entry| {
             gpu_entries.push(wgpu::BindGroupEntry {
                 binding: entry.binding,
-                resource: entry.resource,
+                resource: entry.resource.clone(),
             })
         });
 
@@ -396,21 +396,21 @@ impl Context {
 
     ///
     pub fn create_buffer(
-        &self, 
+        &mut self, 
         label: &str, 
         data: &[u8], 
         usage: wgpu::BufferUsages
     ) -> Rc<Buffer> {
         let buffer = Rc::new(Buffer::new(&self.device.logical_device, label, data, usage));
         
-        self.buffers.insert(label.to_string(), buffer);
+        self.buffers.insert(label.to_string(), buffer.clone());
         
         buffer
     }
 
     ///
     pub fn create_texture(
-        &self, 
+        &mut self, 
         label: &str,         
         size: wgpu::Extent3d, 
         mip_level_count: u32, 
@@ -421,27 +421,27 @@ impl Context {
     ) -> Rc<Texture> {
         let texture = Rc::new(Texture::new(&self.device.logical_device, label, size, mip_level_count, sample_count, dimension, format, usage));
         
-        self.textures.insert(label.to_string(), texture);
+        self.textures.insert(label.to_string(), texture.clone());
         
         texture
     }
 
     ///
     pub fn create_shader(
-        &self, 
+        &mut self, 
         label: &str, 
         code_path: &str
     ) -> Rc<Shader> {
         let shader = Rc::new(Shader::new(&self.device.logical_device, label, code_path));
         
-        self.shaders.insert(label.to_string(), shader);
+        self.shaders.insert(label.to_string(), shader.clone());
         
         shader
     }
 
     ///
     pub fn create_sampler(
-        &self,
+        &mut self,
         label: &str,
         address_mode_u: wgpu::AddressMode, 
         address_mode_v: wgpu::AddressMode, 
@@ -452,51 +452,51 @@ impl Context {
     ) -> Rc<Sampler> {
         let sampler = Rc::new(Sampler::new(&self.device.logical_device, label, address_mode_u, address_mode_v, address_mode_w, min_filter, mag_filter, mipmap_filter));
         
-        self.samplers.insert(label.to_string(), sampler);
+        self.samplers.insert(label.to_string(), sampler.clone());
         
         sampler
     }
 
     ///
     pub fn create_texture_view(
-        &self,
+        &mut self,
         texture: &wgpu::Texture,
         label: &str
     ) -> Rc<TextureView> {
         let texture_view = Rc::new(TextureView::new(&texture, label));
         
-        self.texture_views.insert(label.to_string(), texture_view);
+        self.texture_views.insert(label.to_string(), texture_view.clone());
         
         texture_view
     }
 
     pub fn create_bind_group_layout(
-        &self,
+        &mut self,
         label: &str, 
         entries: Vec<BindGroupLayoutEntry>
     ) -> Rc<BindGroupLayout> {
         let bind_group_layout = Rc::new(BindGroupLayout::new(&self.device.logical_device, label, entries));
         
-        self.bind_group_layouts.insert(label.to_string(), bind_group_layout);
+        self.bind_group_layouts.insert(label.to_string(), bind_group_layout.clone());
         
         bind_group_layout
     }
 
     pub fn create_bind_group(
-        &self,
+        &mut self,
         label: &str, 
         layout: &wgpu::BindGroupLayout, 
         entries: Vec<BindGroupEntry>
     ) -> Rc<BindGroup> {
         let bind_group = Rc::new(BindGroup::new(&self.device.logical_device, label, layout, entries));
         
-        self.bind_groups.insert(label.to_string(), bind_group);
+        self.bind_groups.insert(label.to_string(), bind_group.clone());
         
         bind_group
     }
 
     pub fn create_render_pipeline(
-        &self,
+        &mut self,
         label: &str,
         layout: wgpu::PipelineLayout, 
         shader: &wgpu::ShaderModule,
@@ -508,7 +508,7 @@ impl Context {
     ) -> Rc<RenderPipeline> {
         let render_pipeline = Rc::new(RenderPipeline::new(&self.device.logical_device, label, layout, shader, buffers, color_target_state, depth_target_state, topology, polygon_mode));
         
-        self.render_pipelines.insert(label.to_string(), render_pipeline);
+        self.render_pipelines.insert(label.to_string(), render_pipeline.clone());
         
         render_pipeline
     }

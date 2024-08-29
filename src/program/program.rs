@@ -17,16 +17,17 @@ pub struct Program<'a> {
 impl<'a> Program<'a> {
     pub async fn new(window: &'a Window) -> Self {
         
-        let world = World::new();
+        let mut graphics = Graphics::new(&window).await;
 
-        let graphics = Graphics::new(&world, &window).await;
-
-        let camera = CameraBuilder::new(&graphics.ctx)
+        let camera = CameraBuilder::new(&mut graphics.ctx)
             .with_position((0.0, 0.0, 5.0).into())
             .with_target((0.0, 0.0, 0.0).into())
             .with_type(CameraType::Perspective)
             .with_radius(10.0)
             .build();
+
+        let world = World::new(&mut graphics.ctx);
+
 
         let last_mouse_pos = None;
     
@@ -45,7 +46,9 @@ impl<'a> Program<'a> {
         let _ = world_loop.run(move |event, control_flow| {
             self.handle_window_input(&event, &control_flow);
 
-            self.graphics.render(&self.camera, &self.window);
+            self.camera.update_uniforms(&self.graphics.ctx);
+
+            self.graphics.render(&self.world, &self.camera, &self.window);
         });
     }
 

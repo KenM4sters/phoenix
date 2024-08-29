@@ -2,11 +2,11 @@ use std::rc::Rc;
 
 use winit::event::*;
 
-use crate::graphics::{context::Buffer, vertex_input::Vertex};
+use crate::graphics::context::{Buffer, Context};
 
-use super::model::Model;
+use super::model::{Model, ModelBuilder};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Transform {
     pub position: cgmath::Point3<f32>,
     pub scale: cgmath::Vector3<f32>,
@@ -34,12 +34,17 @@ pub struct Mesh {
 
 // World
 pub struct World {
-    models: Vec<Model>
+    pub models: Vec<Model>
 }
 
 impl World {
-    pub fn new() -> Self {
-        let models = vec![];
+    pub fn new(ctx: &mut Context) -> Self {
+        let mut models = vec![];
+
+        let model = ModelBuilder::new(ctx, "")
+            .build();
+
+        models.push(model);
 
         Self {
             models
@@ -47,9 +52,10 @@ impl World {
     }
 
     pub fn update(&mut self) {
-
-    }
+        todo!()
+    }   
 
     pub fn handle_window_input(&mut self, event: &Event<()>) {
+        todo!()
     }
 }
